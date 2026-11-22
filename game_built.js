@@ -1458,12 +1458,14 @@ const lights = [];
 })();
 let lobbyModel = null, lobbyRotV = 0.35, lobbyDrag = null;
 let lastShow = null;
-function refreshLobbyModel() { if (lastShow && phase === 'lobby') showModel(lastShow[0], lastShow[1]); }
-function showModel(kind, key) {
-  lastShow = [kind, key];
+function refreshLobbyModel() { if (lastShow && phase === 'lobby') showModel(lastShow[0], lastShow[1], lastShow[2]); }
+function showModel(kind, key, skin) {
+  lastShow = [kind, key, skin];
   while (holder.children.length) holder.remove(holder.children[0]);
   let m;
   if (kind === 'cmd') m = mkCommander(key, 0); else if (kind === 'unit') m = mkSoldier(key, 0); else if (kind === 'bld') { m = mkBuilding(key, 0); setOpacity(m, 1); } else m = mkCore(0);
+  if (skin === undefined) skin = kind === 'cmd' ? mySkins(key).c : kind === 'unit' ? mySkins(key).u[key] || '' : '';
+  if (skin) applySkin(m, skin);
   m.traverse(o => { if (o.isMesh) o.castShadow = true; });
   holder.add(m); lobbyModel = m;
   const box = new THREE.Box3().setFromObject(m), sz = new THREE.Vector3(), ct = new THREE.Vector3();
@@ -1505,7 +1507,7 @@ function newGame(playerKey, lineup) {
   if (lineup === 'net') player = null;
   else if (lineup) {   // online match on the server: humans and AI fill the six slots
     player = netDummy();
-    for (const L of lineup) { const c = mk(L.key, L.team, LKEYS[L.slot], false); if (L.cid) { c.net = true; c.cid = L.cid; c.name = L.name; } else { c.smart = true; aiPickUnits(c); } }
+    for (const L of lineup) { const c = mk(L.key, L.team, LKEYS[L.slot], false); if (L.cid) { c.net = true; c.cid = L.cid; c.name = L.name; c.sk = L.sk || ''; c.skU = L.skU || {}; } else { c.smart = true; aiPickUnits(c); } }
   } else {
   player = mk(playerKey, 0, 'mid', true);
   const ac2 = [mk(allies[0], 0, 'top'), mk(allies[1], 0, 'bot')];
@@ -1514,6 +1516,7 @@ function newGame(playerKey, lineup) {
   for (const c of fc) { c.smart = !!SET.hardAI; if (SET.hardAI) c.elite = 1.2; }
   for (const c of [...ac2, ...fc]) aiPickUnits(c);
   }
+  for (const c of cmds()) skinCmd(c);
   for (const c of cmds()) for (const k of [0, 1]) intel[1 - c.team][ik(c, k)] = {st:0, hint:''};
   G.markers = [mkMarker(0), mkMarker(1)];
   G.aura = ring(15.5, 16, C.gold, 0.25); world.add(G.aura);
@@ -1533,7 +1536,7 @@ function spawnSquad(c, k, half) {
 function spawnSoldier(c, type, x, z, hpf = 1, temp = 0, grp = 0) {
   const U = UNITS[type];
   return armorUp(c, type, addEnt({kind:'sol', team:c.team, owner:c, utype:type, grp, x, z, r:type === 'cav' || type === 'siege' ? 1.1 : type === 'griffin' ? 1.0 : 0.7, hp:U.hp*(c.elite || 1)*hpf*(1 + 0.08*(c.grp[grp] ? c.grp[grp].rank : 0)), maxHp:U.hp*(c.elite || 1)*(1 + 0.08*(c.grp[grp] ? c.grp[grp].rank : 0)), temp,
-    moveT:0, stillT:0, stealth:false, slotI:0, mesh:bake(mkSoldier(type, c.team))}));
+    moveT:0, stillT:0, stealth:false, slotI:0, mesh:applySkin(bake(mkSoldier(type, c.team)), soldierSkin(c, type))}));
 }
 function squad(c, k) { return ents.filter(e => e.kind === 'sol' && e.owner === c && !e.dead && !isComp(e) && (k === undefined || e.grp === k)); }
 
@@ -3002,6 +3005,7 @@ function render(dt) {
   tAll += dt;
   if (phase === 'exit') return;
   if (phase === 'lobby') return renderLobby(dt);
+  skinFx(dt);
   const focus = G && G.freeCam ? G.freeCam : (player && player.respawn <= 0 ? player : SPAWN[0]);
   camT.x += (focus.x - camT.x)*Math.min(1, dt*6); camT.z += (focus.z - camT.z)*Math.min(1, dt*6);
   camZ += ((G && G.deploy ? 1.55 : 1)*camZoom - camZ)*Math.min(1, dt*4);
@@ -3389,7 +3393,7 @@ function startPlace(type) {
 function cancelPlace() { if (G && G.ghost) world.remove(G.ghost); if (G) { G.ghost = null; G.placing = null; } }
 
 // ================= lobby UI =================
-const LT = [['play','出征','core'], ['cmd','指揮官','valen'], ['unit','兵種','troops'], ['bld','建築','build'], ['set','設定','voice']];
+const LT = [['play','出征','core'], ['cmd','指揮官','valen'], ['unit','兵種','troops'], ['bld','建築','build'], ['shop','軍需商店','rep'], ['set','設定','voice']];
 let ltab = 'play', lsel = {cmd:'sylvie', unit:'pike', bld:'trench'};
 try { const s = localStorage.getItem('fhwz-cmd'); if (s && CMDS[s]) lsel.cmd = s; } catch (e) {}
 let subT = null;
@@ -3434,6 +3438,7 @@ function drawLobbyPanel() {
       const vs = $('vsel'); if (vs) vs.onchange = () => { SET.vmap[k] = vs.value; saveSet(); lobbySay(k, 'select'); };
     }
     P2.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { lsel.cmd = b.dataset.c; drawLobbyPanel(); lobbySay(lsel.cmd, 'select'); });
+  } else if (ltab === 'shop') { drawShop(P2, cap);
   } else if (ltab === 'unit') {
     const u = lsel.unit, U = UNITS[u], S = USK[u];
     showModel('unit', u);
@@ -4081,6 +4086,7 @@ function showResults(win) {
   const row = c => `<tr class="${c === player ? 'me' : ''}"><td>${icon(c.key, 26, c.team)} ${CMDS[c.key].n}${c === player ? '（你）' : ''}${c === mvp ? '<span class="mvp">MVP</span>' : ''}</td><td>${c.lvl}</td><td>${c.st.kills}／${c.st.deaths}</td><td>${c.st.solK}</td><td>${c.st.solL}</td><td>${c.st.towers}</td><td>${Math.round(c.st.dmg/100)/10}k</td><td>${Math.round(c.gold + c.spent)}</td></tr>`;
   const head = `<tr><th>指揮官</th><th>等級</th><th>擊殺／陣亡</th><th>殲敵士兵</th><th>折損士兵</th><th>推塔</th><th>傷害</th><th>總軍資</th></tr>`;
   const tot = t => { const L = cs.filter(c => c.team === t); return {k:L.reduce((s, c) => s + c.st.kills, 0), l:L.reduce((s, c) => s + c.st.solL, 0), g:Math.round(teamEarn(t))}; };
+  const RR = repReward(win, mvp === player);
   const T0 = tot(0), T1 = tot(1), why = mvp ? [mvp.st.kills ? `擊殺 ${mvp.st.kills}` : '', mvp.st.towers ? `推塔 ${mvp.st.towers}` : '', `殲敵士兵 ${mvp.st.solK}`, `傷害 ${Math.round(mvp.st.dmg/100)/10}k`].filter(Boolean).join('・') : '';
   modal.innerHTML = `<div class="sheet" style="margin-top:4vh"><div class="bar" style="align-items:flex-end"><div style="display:flex;flex-direction:column;gap:6px;flex:1"><span class="kick">${fmt(G.time)}・戰役結束</span>
      <h1 style="color:${win ? C.gold : C.red};margin:0">${win ? '勝利：敵方主塔已陷落' : '敗北：我方主塔失守'}</h1></div>
@@ -4089,11 +4095,13 @@ function showResults(win) {
        <h3 style="color:${C.red};margin-top:12px">黑曜大軍・擊殺 ${T1.k}・折損士兵 ${T1.l}・推倒敵塔 ${G.lost[0]}</h3><table>${head}${cs.filter(c => c.team === 1).map(row).join('')}</table></div>
      <div class="card"><h3>經濟曲線（累計軍資）</h3><canvas id="ecoC" width="520" height="230" style="width:100%;height:auto"></canvas>
        <div class="keys" style="margin-top:8px"><div><kbd>${G.stats.orders}</kbd><span>下達指令</span></div><div><kbd>${G.stats.skills}</kbd><span>施放技能</span></div><div><kbd>${G.stats.caps}</kbd><span>佔領據點</span></div><div><kbd>${G.stats.objs}</kbd><span>中立目標</span></div></div></div></div>
+     ${repHtml(RR)}
      <div class="bar"><button type="button" class="go" id="againQ">${glyph('advance', 20, '#1A1408')}再來一場（${CMDS[player.key].n}）</button><button type="button" class="go alt" id="again">換指揮官（回大廳）</button></div></div>`;
   modal.classList.add('show');
   const key = player.key;
   $('againQ').onclick = () => { closeModal(); ac(); drum(); startWhenArt(() => newGame(key)); };
   $('again').onclick = () => showLobby();
+  if ($('toShop')) $('toShop').onclick = () => { ltab = 'shop'; shopPrev = null; showLobby(); };
   drawEco($('ecoC'));
 }
 function drawEco(cv) {
@@ -4562,6 +4570,181 @@ function bldHurt(t, src) {
   return m;
 }
 
+// ================= v1.2: reputation (聲望) and cosmetic skins =================
+// Reputation is earned by finishing matches (more for wins) and buys commander and unit skins.
+// The profile lives in this browser's localStorage.
+// each skin repaints the model's texture: cloth (the team-coloured parts), metal and leather get new colours, skin and faces stay
+const SKINS = {
+  valen_gold:  {c:'valen',  n:'黃金聖騎',   cloth:'#F4EAD0', metal:'#F0BE48', leather:'#A06A20', fx:'#FFD36A', p:'halo',   price:2500},
+  valen_frost: {c:'valen',  n:'寒冰公爵',   cloth:'#D6ECFF', metal:'#CFEFFF', leather:'#4A6A8A', fx:'#9AD8FF', p:'frost',  price:1500},
+  sylvie_jade: {c:'sylvie', n:'翡翠林后',   cloth:'#3FA060', metal:'#D8C070', leather:'#5A3A1A', fx:'#7EE08E', p:'leaf',   price:1500},
+  sylvie_moon: {c:'sylvie', n:'月影遊俠',   cloth:'#3C3C78', metal:'#E0E4F4', leather:'#2A2A3A', fx:'#C9C9FF', p:'moon',   price:2500},
+  orion_star:  {c:'orion',  n:'星界大賢者', cloth:'#4A2A90', metal:'#F0CC60', leather:'#2A1A40', fx:'#B596FF', p:'star',   price:2500},
+  orion_fire:  {c:'orion',  n:'烈焰術士',   cloth:'#B0281A', metal:'#FFA040', leather:'#3A1A10', fx:'#FF8A3C', p:'flame',  price:1500},
+  gru_frost:   {c:'gru',    n:'冰原狼王',   cloth:'#EEF4FA', metal:'#A8D4F0', leather:'#8A9AAA', fx:'#9AD8FF', p:'frost',  price:1500},
+  gru_blood:   {c:'gru',    n:'血月獸王',   cloth:'#6E1018', metal:'#3A3A40', leather:'#2A1414', fx:'#FF5050', p:'blood',  price:2500},
+  brand_gold:  {c:'brand',  n:'黃金機匠',   cloth:'#E8D4A0', metal:'#F0BE48', leather:'#7A4A1A', fx:'#FFD36A', p:'spark',  price:1500},
+  brand_lava:  {c:'brand',  n:'熔岩巨匠',   cloth:'#2E2626', metal:'#FF7020', leather:'#1E1818', fx:'#FF7A2C', p:'flame',  price:2500},
+  raven_blood: {c:'raven',  n:'血鴉',       cloth:'#5A0E16', metal:'#2A2A30', leather:'#1A1012', fx:'#D23C3C', p:'shadow', price:1500},
+  raven_frost: {c:'raven',  n:'霜鴉',       cloth:'#E6F2FC', metal:'#9CCCF0', leather:'#5A6A7A', fx:'#9AD8FF', p:'frost',  price:2500}
+};
+// unit skins keep the team colour (brighter or darker) so squads stay easy to tell apart
+const USKIN = {gold:{n:'金甲禁衛', clothMul:1.2, metal:'#F0BE48', leather:'#D0A040', price:600}, dark:{n:'玄甲夜軍', clothMul:0.42, metal:'#3E4252', leather:'#1A1818', price:600}};
+const SKU = () => ALLU.concat(MERCS);                     // unit types that can wear a skin
+const uSkinId = (u, v) => u + ':' + v;
+const skinOk = id => typeof id === 'string' && (SKINS[id] || /^[a-z]+:(gold|dark)$/.test(id) && USKIN[id.split(':')[1]]);
+
+// ---------- profile ----------
+const PROF_KEY = 'fhwz-profile';
+const PROF0 = () => ({rep:0, own:[], eqC:{}, eqU:{}, fw:'', games:0, wins:0});
+let PROF = (() => { try { const p = JSON.parse(localStorage.getItem(PROF_KEY) || 'null'); if (p && typeof p.rep === 'number') return Object.assign(PROF0(), p); } catch (e) {} return PROF0(); })();
+function saveProf() { try { localStorage.setItem(PROF_KEY, JSON.stringify(PROF)); } catch (e) {} }
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+const owns = id => PROF.own.includes(id);
+// what this browser's player wears: {c: commander skin, u: {unitType: skin}}
+function mySkins(key) {
+  const u = {}; for (const t in PROF.eqU) if (owns(PROF.eqU[t])) u[t] = PROF.eqU[t];
+  return {c:owns(PROF.eqC[key]) ? PROF.eqC[key] : '', u};
+}
+
+// ---------- rewards ----------
+// 勝 100、敗 30；線上對戰 ×1.5；強化敵方 AI 的單人勝場 +50%；MVP +30；每日首勝 +100
+function repReward(win, mvpMe) {
+  if (!G || G.repDone || G.tut || !player) return G && G.repR || null;
+  G.repDone = true;
+  const online = !!NET.client, L = [];
+  L.push([win ? '勝利' : '完成對戰', win ? 100 : 30]);
+  if (online) L.push(['線上對戰加成', win ? 50 : 15]);
+  else if (win && SET.hardAI) L.push(['強化敵方 AI', 50]);
+  if (mvpMe) L.push(['本場 MVP', 30]);
+  if (win && PROF.fw !== today()) { PROF.fw = today(); L.push(['每日首勝', 100]); }
+  const sum = L.reduce((a, b) => a + b[1], 0);
+  PROF.rep += sum; PROF.games++; if (win) PROF.wins++; saveProf();
+  return (G.repR = {L, sum});
+}
+function repHtml(R) {
+  if (!R) return '';
+  return `<div class="repbox">${glyph('rep', 34, C.gold)}<div><div class="kick">獲得聲望</div><div class="rv">+${R.sum}</div><div class="rl">${R.L.map(x => `${x[0]} +${x[1]}`).join('・')}</div></div><div class="rt">目前聲望 <b>${PROF.rep}</b><button type="button" class="go alt" id="toShop">${glyph('rep', 18, C.gold)}軍需商店</button></div></div>`;
+}
+
+// ---------- applying a skin to a model ----------
+const skinDef = id => SKINS[id] || USKIN[id.split(':')[1]];
+const hx3 = h => [parseInt(h.slice(1, 3), 16)/255, parseInt(h.slice(3, 5), 16)/255, parseInt(h.slice(5, 7), 16)/255];
+// the two team atlases differ exactly where the team colour is painted: that difference is the "cloth" mask
+let SKB = null;
+function skinBase() {
+  if (SKB) return SKB;
+  const N = 1024, read = img => { const cv = document.createElement('canvas'); cv.width = cv.height = N; const x = cv.getContext('2d'); x.drawImage(img, 0, 0, N, N); return x.getImageData(0, 0, N, N).data; };
+  const A = [read(ART.unitMat[0].map.image), read(ART.unitMat[1].map.image)], wc = new Float32Array(N*N);
+  for (let i = 0, j = 0; i < wc.length; i++, j += 4) { const d = Math.abs(A[0][j] - A[1][j]) + Math.abs(A[0][j + 1] - A[1][j + 1]) + Math.abs(A[0][j + 2] - A[1][j + 2]); wc[i] = Math.min(1, Math.max(0, (d - 30)/50)); }
+  return (SKB = {N, A, wc});
+}
+const SKTEX = new Map();
+function skinTex(team, id) {
+  const key = team + id; if (SKTEX.has(key)) return SKTEX.get(key);
+  const S = skinDef(id), B = skinBase(), N = B.N, src = B.A[team], cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const x = cv.getContext('2d'), out = x.createImageData(N, N), o = out.data;
+  const C = S.cloth && hx3(S.cloth), M = S.metal && hx3(S.metal), L = S.leather && hx3(S.leather), cm = S.clothMul || 0;
+  for (let i = 0, j = 0; i < B.wc.length; i++, j += 4) {
+    let r = src[j]/255, g = src[j + 1]/255, b = src[j + 2]/255;
+    const lum = 0.3*r + 0.59*g + 0.11*b, mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = (mx - mn)/(mx + 0.001);
+    const row = Math.floor(i/N)/N, band = row >= 0.5 && row < 0.75, wc = B.wc[i];   // band: bodies and faces, never repainted
+    if (C) { const k = Math.min(1.3, Math.max(0.12, lum*2.3)); r += (C[0]*k - r)*wc; g += (C[1]*k - g)*wc; b += (C[2]*k - b)*wc; }
+    else if (cm) { const f = 1 + (cm - 1)*wc; r *= f; g *= f; b *= f; }
+    const wm = band ? 0 : Math.min(1, Math.max(0, (0.22 - sat)/0.08))*Math.min(1, Math.max(0, (lum - 0.26)/0.1))*(1 - wc);
+    if (M && wm > 0) { const k = Math.min(1.35, lum*1.45); r += (M[0]*k - r)*wm; g += (M[1]*k - g)*wm; b += (M[2]*k - b)*wm; }
+    if (L && !band && sat > 0.2 && src[j] > src[j + 1] && src[j + 1] > src[j + 2]) { const w = 0.7*(1 - wc)*(1 - wm), k = Math.min(1.2, lum*3); r += (L[0]*k - r)*w; g += (L[1]*k - g)*w; b += (L[2]*k - b)*w; }
+    o[j] = r*255; o[j + 1] = g*255; o[j + 2] = b*255; o[j + 3] = 255;
+  }
+  x.putImageData(out, 0, 0);
+  const t = new THREE.CanvasTexture(cv), m0 = ART.unitMat[team].map; t.flipY = m0.flipY; t.encoding = m0.encoding; t.anisotropy = 4; t.wrapS = m0.wrapS; t.wrapT = m0.wrapT;
+  SKTEX.set(key, t); return t;
+}
+const SKMAT = new Map();
+function skinMat(m, id, team) {
+  const k = m.uuid + id + team; if (SKMAT.has(k)) return SKMAT.get(k);
+  const n = m.clone(), S = skinDef(id);
+  if (typeof ART !== 'undefined' && ART.ready && m.map && (m.map === ART.unitMat[0].map || m.map === ART.unitMat[1].map)) n.map = skinTex(m.map === ART.unitMat[1].map ? 1 : 0, id);
+  else if (n.color && !m.map) n.color.lerp(new THREE.Color(S.cloth || S.metal), 0.4);   // simple models (art not loaded, mounts, machines)
+  SKMAT.set(k, n); return n;
+}
+function applySkin(mesh, id) {
+  if (SVR || !mesh || !id || !skinOk(id)) return mesh;
+  try {
+    mesh.traverse(o => {
+      if (!o.isMesh || !o.material || o.userData.skinFx) return;
+      o.material = Array.isArray(o.material) ? o.material.map(m => skinMat(m, id)) : skinMat(o.material, id);
+    });
+  } catch (e) { console.warn('skin', id, e); }
+  const S = SKINS[id];
+  if (S) {   // commander skins also get a glowing ring at the feet, and a halo for the gold paladin
+    const ringM = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.45, 40), new THREE.MeshBasicMaterial({color:S.fx, transparent:true, opacity:0.55, depthWrite:false, side:THREE.DoubleSide}));
+    ringM.rotation.x = -Math.PI/2; ringM.position.y = 0.06; ringM.userData.skinFx = true; mesh.add(ringM);
+    if (S.p === 'halo') { const h = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.06, 6, 24), new THREE.MeshBasicMaterial({color:'#FFE6A0'})); h.rotation.x = Math.PI/2; h.position.y = 3.3; h.userData.skinFx = true; mesh.add(h); }
+    mesh.userData.skinFx = {c:S.fx, p:S.p, ring:ringM, t:0};
+  }
+  return mesh;
+}
+// particles drifting around skinned commanders
+function skinFx(dt) {
+  if (!G) return;
+  for (const e of ents) {
+    if (e.kind !== 'cmd' || e.dead || e.respawn > 0 || !e.mesh || !e.mesh.userData.skinFx || !(e.team === 0 || e.vis[0]) || e.stealth) continue;
+    const F = e.mesh.userData.skinFx;
+    F.ring.rotation.z += dt*0.8; F.ring.material.opacity = 0.42 + Math.sin(G.time*3 + e.id)*0.14;
+    F.t -= dt; if (F.t > 0) continue; F.t = F.p === 'shadow' ? 0.12 : 0.2;
+    const a = Math.random()*Math.PI*2, r = 0.6 + Math.random()*0.8;
+    sparks(e.x + Math.sin(a)*r, 0.6 + Math.random()*2.4, e.z + Math.cos(a)*r, F.c, F.p === 'star' || F.p === 'spark' ? 2 : 1, F.p === 'flame' ? 1.6 : 1, F.p === 'leaf' || F.p === 'frost' ? -1.5 : F.p === 'shadow' ? -0.5 : -3, F.p === 'shadow' ? 1.3 : 0.8);
+  }
+}
+// commanders: the player's choice (or another player's online); AI commanders sometimes show off a skin
+function skinCmd(c) {
+  if (c.sk === undefined) {
+    if (c === player) { const s = mySkins(c.key); c.sk = s.c; c.skU = s.u; }
+    else if (!c.net) { const own = Object.keys(SKINS).filter(id => SKINS[id].c === c.key); c.sk = Math.random() < 0.35 ? pick(own) : ''; c.skU = {}; if (Math.random() < 0.3) { const v = Math.random() < 0.5 ? 'gold' : 'dark'; for (const u of SKU()) c.skU[u] = uSkinId(u, v); } }
+  }
+  if (c.sk && c.mesh) applySkin(c.mesh, c.sk);
+}
+const soldierSkin = (c, type) => c && c.skU && c.skU[type] || '';
+
+// ---------- shop (lobby tab) ----------
+let shopPrev = null;     // skin being previewed on the lobby stage
+function drawShop(P2, cap) {
+  const k = lsel.cmd, u = lsel.unit;
+  const prevU = shopPrev && shopPrev.includes(':') ? shopPrev : null, prevC = shopPrev && SKINS[shopPrev] ? shopPrev : null;
+  const cSkin = prevC || (shopPrev === 'none' ? '' : (owns(PROF.eqC[k]) ? PROF.eqC[k] : ''));
+  if (prevU) showModel('unit', prevU.split(':')[0], prevU); else showModel('cmd', k, cSkin);
+  const shown = prevU ? `${UNITS[prevU.split(':')[0]].n}・${USKIN[prevU.split(':')[1]].n}` : `${CMDS[k].n}・${cSkin ? SKINS[cSkin].n : '原始造型'}`;
+  cap.innerHTML = `<div class="t">外觀預覽</div><div class="n">${shown}</div><div class="hint">拖曳旋轉模型</div>`;
+  const card = (id, nm, price, eqd, ownd, sw) => `<div class="sk ${eqd ? 'eq' : ''}"><button type="button" class="skp" data-pv="${id}"><span class="sw" style="background:${sw}"></span><span><b>${nm}</b><small>${ownd ? (eqd ? '使用中' : '已擁有') : `${price} 聲望`}</small></span></button>
+    ${ownd ? `<button type="button" class="go alt skb" data-eq="${id}">${eqd ? '卸下' : '使用'}</button>` : `<button type="button" class="go skb" data-buy="${id}" ${PROF.rep < price ? 'data-poor="1"' : ''}>${glyph('rep', 16, '#1A1408')}購買</button>`}</div>`;
+  const cmdSk = Object.keys(SKINS).filter(id => SKINS[id].c === k);
+  P2.innerHTML = `<div class="bar" style="align-items:center"><div style="flex:1"><div class="kick">軍需商店・外觀只改變造型，不影響能力</div><h2 style="display:flex;align-items:center;gap:8px">${glyph('rep', 30, C.gold)}聲望 ${PROF.rep}</h2></div>
+</div>
+    <p style="color:var(--muted);font-size:13px;margin:0">每場對戰結束都會獲得聲望：勝利 100、完成對戰 30、線上對戰再加 50%、MVP +30、每日首勝 +100。聲望與外觀存在這個瀏覽器裡。</p>
+    <div class="kick">指揮官外觀（點名字預覽）</div><div class="pick">${CKEYS.map(c => `<button type="button" class="pk ${c === k && !prevU ? 'on' : ''}" data-sc="${c}">${icon(c, 40)}<span>${CMDS[c].n}</span></button>`).join('')}</div>
+    <div class="skins"><div class="sk ${owns(PROF.eqC[k]) ? '' : 'eq'}"><button type="button" class="skp" data-pv="none"><span class="sw" style="background:#5A6070"></span><span><b>原始造型</b><small>${owns(PROF.eqC[k]) ? '已擁有' : '使用中'}</small></span></button>${owns(PROF.eqC[k]) ? `<button type="button" class="go alt skb" data-eq="" data-eqk="${k}">使用</button>` : ''}</div>${cmdSk.map(id => card(id, SKINS[id].n, SKINS[id].price, PROF.eqC[k] === id, owns(id), SKINS[id].fx)).join('')}</div>
+    <div class="kick">兵種外觀（套用到你這個兵種的所有士兵）</div><div class="pick upick">${SKU().map(v => `<button type="button" class="pk ${v === u && prevU ? 'on' : ''}" data-su="${v}">${icon(v, 36)}<span>${UNITS[v].n}</span></button>`).join('')}</div>
+    <div class="skins">${Object.keys(USKIN).map(v => { const id = uSkinId(u, v); return card(id, `${UNITS[u].n}・${USKIN[v].n}`, USKIN[v].price, PROF.eqU[u] === id, owns(id), USKIN[v].metal); }).join('')}</div>`;
+  P2.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { lsel.cmd = b.dataset.sc; shopPrev = null; drawLobbyPanel(); });
+  P2.querySelectorAll('[data-su]').forEach(b => b.onclick = () => { lsel.unit = b.dataset.su; shopPrev = PROF.eqU[lsel.unit] && owns(PROF.eqU[lsel.unit]) ? PROF.eqU[lsel.unit] : uSkinId(lsel.unit, 'gold'); drawLobbyPanel(); });
+  P2.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { shopPrev = b.dataset.pv; drawLobbyPanel(); });
+  P2.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => {
+    const id = b.dataset.buy, S = SKINS[id] || USKIN[id.split(':')[1]];
+    if (PROF.rep < S.price) { toast(`聲望不足：還差 ${S.price - PROF.rep}`, 'r'); return; }
+    PROF.rep -= S.price; PROF.own.push(id);
+    if (SKINS[id]) PROF.eqC[SKINS[id].c] = id; else PROF.eqU[id.split(':')[0]] = id;
+    saveProf(); chime(); toast(`購買並換上「${SKINS[id] ? S.n : UNITS[id.split(':')[0]].n + '・' + S.n}」`, 'g'); shopPrev = id; drawLobbyPanel();
+  });
+  P2.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => {
+    const id = b.dataset.eq;
+    if (!id) { delete PROF.eqC[b.dataset.eqk]; shopPrev = 'none'; }
+    else if (SKINS[id]) { const c = SKINS[id].c; if (PROF.eqC[c] === id) delete PROF.eqC[c]; else PROF.eqC[c] = id; shopPrev = id; }
+    else { const t = id.split(':')[0]; if (PROF.eqU[t] === id) delete PROF.eqU[t]; else PROF.eqU[t] = id; shopPrev = id; }
+    saveProf(); drawLobbyPanel();
+  });
+}
+
 // ================= v1.0: online multiplayer =================
 // One authoritative simulation runs on the Node server (server/server.js loads this same file with globalThis.NETSV set).
 // Browsers send commands, receive ~10 snapshots a second and only render. A client on the red team sees the map
@@ -4569,7 +4752,7 @@ function bldHurt(t, src) {
 // minimap, "我方/敵方") keeps working unchanged; positions, teams and lanes are mirrored on the way in and out.
 const SVR = globalThis.NETSV || null;
 const NET = {client:false, team:0, mirror:false, ws:null, url:'', name:'', id:null, room:null, you:null, ents:new Map(), zmap:new Map(), lastSend:0, mv:{x:0, z:0}, rpickS:'', snapN:0, hp:new Map()};
-const NET_VER = '1.1.0';      // must match the server's copy of the game
+const NET_VER = '1.2.0';      // must match the server's copy of the game
 const NET_URL_DEFAULT = '';   // build_itch.py can bake the server address in
 const MIRL = {top:'bot', mid:'mid', bot:'top'};
 const CAMPMIR = {wolfB:'wolfR', wolfR:'wolfB', golemB:'golemR', golemR:'golemB', mercN:'mercS', mercS:'mercN'};
@@ -4615,8 +4798,8 @@ function netMusterDone() {
 const NR1 = v => Math.round(v*10)/10;
 function netDesc(e) {
   const d = {i:e.id, k:e.kind, tm:e.team, x:NR1(e.x), z:NR1(e.z), f:NR1(e.facing || 0), r:e.r};
-  if (e.kind === 'cmd') { d.key = e.key; d.ln = e.lane; d.nm = e.name || ''; d.hu = e.net ? 1 : 0; }
-  else if (e.kind === 'sol') { d.u = e.utype; d.o = e.owner.id; d.g = e.grp; if (isComp(e)) d.cp = 1; if (e.atkMul) d.big = 1; }
+  if (e.kind === 'cmd') { d.key = e.key; d.ln = e.lane; d.nm = e.name || ''; d.hu = e.net ? 1 : 0; if (e.sk) d.sk = e.sk; }
+  else if (e.kind === 'sol') { d.u = e.utype; d.o = e.owner.id; d.g = e.grp; if (isComp(e)) d.cp = 1; else { const sk = soldierSkin(e.owner, e.utype); if (sk) d.sk = sk; } if (e.atkMul) d.big = 1; }
   else if (e.kind === 'min') { d.rg = e.ranged ? 1 : 0; d.sp = e.sup ? 1 : 0; d.gu = e.guard ? 1 : 0; d.ln = e.lane; }
   else if (e.kind === 'tow') { d.ln = e.lane; d.ti = e.tier; }
   else if (e.kind === 'bld') { d.ty = e.type; d.o = e.owner ? e.owner.id : 0; }
@@ -4713,8 +4896,8 @@ function netSpawn(d) {
   if (NET.ents.has(d.i)) return;
   const tm = NMT(d.tm), x = NMX(d.x), z = NMX(d.z);
   const o = {kind:d.k, team:tm, x, z, tx:x, tz:z, facing:NMF(d.f), r:d.r, hp:1, maxHp:1, net:true};
-  if (d.k === 'cmd') Object.assign(o, {key:d.key, lane:NET.mirror ? MIRL[d.ln] : d.ln, name:d.nm, human:!!d.hu, grp:[newGrp(), newGrp()], lvl:1, xp:0, tal:[], arm:{}, respawn:0, streak:0, gold:0, spent:0, builds:0, st:{kills:0, deaths:0, solK:0, solL:0, towers:0, dmg:0}, qT:0, rT:0, eT:0, cmdA:0, spd:CMDS[d.key].spd, faceS:NMF(d.f), mesh:bake(mkCommander(d.key, tm))});
-  else if (d.k === 'sol') { Object.assign(o, {utype:d.u, owner:NET.ents.get(d.o) || null, grp:d.g || 0, comp:!!d.cp && d.u !== 'wolf', mesh:bake(mkSoldier(d.u, tm))}); if (d.big) o.mesh.scale.multiplyScalar(1.2); }
+  if (d.k === 'cmd') Object.assign(o, {key:d.key, lane:NET.mirror ? MIRL[d.ln] : d.ln, name:d.nm, human:!!d.hu, grp:[newGrp(), newGrp()], lvl:1, xp:0, tal:[], arm:{}, respawn:0, streak:0, gold:0, spent:0, builds:0, st:{kills:0, deaths:0, solK:0, solL:0, towers:0, dmg:0}, qT:0, rT:0, eT:0, cmdA:0, spd:CMDS[d.key].spd, faceS:NMF(d.f), sk:d.sk || '', mesh:applySkin(bake(mkCommander(d.key, tm)), d.sk)});
+  else if (d.k === 'sol') { Object.assign(o, {utype:d.u, owner:NET.ents.get(d.o) || null, grp:d.g || 0, comp:!!d.cp && d.u !== 'wolf', mesh:applySkin(bake(mkSoldier(d.u, tm)), d.sk)}); if (d.big) o.mesh.scale.multiplyScalar(1.2); }
   else if (d.k === 'min') Object.assign(o, {ranged:!!d.rg, sup:!!d.sp, guard:!!d.gu, lane:d.ln, mesh:bake(mkMinion(tm, !!d.rg, !!d.sp, !!d.gu))});
   else if (d.k === 'tow') Object.assign(o, {lane:NET.mirror ? MIRL[d.ln] : d.ln, tier:d.ti, mesh:mkTower(tm, d.ti - 1)});
   else if (d.k === 'core') o.mesh = mkCore(tm);
@@ -4975,9 +5158,9 @@ function openNetLobby() {
     <p id="netMsg" style="color:var(--muted);font-size:13px">房主建立房間後，把房號告訴朋友。伺服器網址只需要設定一次。</p><div id="netRoom"></div></div>`;
   document.body.appendChild(box);
   const go = act => { if (!/^wss?:\/\/./.test($('netUrl').value.trim())) { netErr('請先填伺服器網址（wss:// 開頭，部署伺服器後取得）'); return; } NET.name = ($('netName').value || '指揮官').slice(0, 12); try { localStorage.setItem('fhwz-net-name', NET.name); } catch (e) {} const u = $('netUrl').value.trim(); $('netMsg').textContent = '連線中…'; $('netMsg').style.color = 'var(--muted)'; netConnect(u, act); };
-  $('netCreate').onclick = () => go(() => netSend({t:'create', key:lsel.cmd}));
+  $('netCreate').onclick = () => go(() => netSend({t:'create', key:lsel.cmd, sk:mySkins(lsel.cmd)}));
   if (rj) $('netRe').onclick = () => go(() => netSend({t:'rejoin', code:rj.code, tok:rj.tok}));
-  $('netJoin').onclick = () => { const code = $('netCode').value.trim().toUpperCase(); if (code.length !== 5) { netErr('房號是 5 碼'); return; } go(() => netSend({t:'join', code, key:lsel.cmd})); };
+  $('netJoin').onclick = () => { const code = $('netCode').value.trim().toUpperCase(); if (code.length !== 5) { netErr('房號是 5 碼'); return; } go(() => netSend({t:'join', code, key:lsel.cmd, sk:mySkins(lsel.cmd)})); };
   $('netClose').onclick = () => closeNetLobby();
 }
 function closeNetLobby() { const b = $('netBox'); if (b) b.remove(); if (NET.ws && !NET.client) { netSend({t:'leave'}); try { NET.ws.close(); } catch (e) {} } NET.room = null; }
@@ -4994,7 +5177,7 @@ function drawNetRoom() {
     <div class="kick" style="margin-top:8px">你的指揮官（同隊不可重複）</div><div class="pick">${CKEYS.map(k => `<button type="button" class="pk ${me && me.key === k ? 'on' : ''}" data-k="${k}" ${used.has(k) ? 'disabled' : ''}>${icon(k, 40)}<span>${CMDS[k].n}</span></button>`).join('')}</div>
     <div class="bar">${host ? `<button type="button" class="go" id="netStart">${glyph('advance', 20, '#1A1408')}開始對戰</button>` : '<span style="color:var(--muted)">等待房主開始…</span>'}<span style="color:var(--muted);font-size:12px">兩隊都可以放真人；同隊是合作、分隊就是對戰。空位由 AI 指揮官補上。</span></div>`;
   el.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => netSend({t:'slot', team:+b.dataset.team, slot:+b.dataset.slot}));
-  el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => netSend({t:'pick', key:b.dataset.k}));
+  el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => netSend({t:'pick', key:b.dataset.k, sk:mySkins(b.dataset.k)}));
   const st = $('netStart'); if (st) st.onclick = () => netSend({t:'start'});
 }
 function netClientStart(m) {
