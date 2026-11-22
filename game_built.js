@@ -1114,7 +1114,7 @@ const CMDS = {
   sylvie: {n:'希爾薇', t:'遊俠女王', fac:'聖輝王國', hp:880, atk:34, rng:11, spd:9, ranged:1, p:'鷹眼：遠程部隊射程 +15%',
            q:{n:'箭雨', cd:11, d:'指定區域箭雨 2 秒，緩速 20%'}, r:{n:'萬箭穿雲', cd:50, d:'大範圍箭雨 3 秒，對飛行加倍'}, e:{n:'破曉神射', cd:80, d:'射出貫穿 40 距離的光箭，路徑上每個敵人受 150 傷害並被擊退'}},
   orion:  {n:'歐瑞恩', t:'星咒賢者', fac:'黑曜帝國', hp:820, atk:36, rng:10, spd:9, ranged:1, magic:1, p:'星界共鳴：方尖碑範圍與加成加倍',
-           q:{n:'流星墜擊', cd:12, d:'1 秒後隕石落在指定處，範圍傷害並暈眩'}, r:{n:'時滯結界', cd:50, d:'指定區域敵軍移速 -60%，4 秒'}, e:{n:'星隕天降', cd:90, d:'1.5 秒後巨型隕星砸落大範圍：250 傷害（含建築）並暈眩 1.5 秒'}},
+           q:{n:'流星墜擊', cd:12, d:'1.2 秒後隕石落在指定處：110 傷害並暈眩 0.8 秒'}, r:{n:'時滯結界', cd:50, d:'指定區域敵軍移速 -60%，4 秒'}, e:{n:'星隕天降', cd:90, d:'1.8 秒後巨型隕星砸落範圍 9：170 傷害（含建築）並暈眩 1 秒'}},
   gru:    {n:'格魯', t:'獸語者', fac:'黑曜帝國', hp:1050, atk:38, rng:3, spd:9, p:'狂野血脈：騎兵與獅鷲移速 +10%',
            q:{n:'狼群召喚', cd:16, d:'在身邊召喚 3 頭戰狼 12 秒'}, r:{n:'萬獸奔騰', cd:50, d:'兩隊朝指定方向衝鋒 22，攻擊加倍並擊退'}, e:{n:'萬獸之王', cd:90, d:'召喚 6 頭戰狼 15 秒，兩隊攻速 +40%，持續 8 秒'}},
   brand:  {n:'布蘭德', t:'攻城大師', fac:'黑曜帝國', hp:1050, atk:32, rng:3, spd:8.5, p:'工兵：對建築與塔傷害 +20%',
@@ -1124,20 +1124,20 @@ const CMDS = {
 };
 const CSK = {
   valen:{q:{t:'circle', range:14, r:5}, r:{t:'self', r:15}, e:{t:'circle', range:16, r:10}}, sylvie:{q:{t:'circle', range:18, r:6}, r:{t:'circle', range:24, r:13}, e:{t:'line', len:40, w:5}},
-  orion:{q:{t:'circle', range:16, r:6}, r:{t:'circle', range:18, r:12}, e:{t:'circle', range:22, r:11}}, gru:{q:{t:'self', r:4}, r:{t:'line', len:22, w:8}, e:{t:'self', r:10}},
+  orion:{q:{t:'circle', range:16, r:6}, r:{t:'circle', range:18, r:12}, e:{t:'circle', range:22, r:9}}, gru:{q:{t:'self', r:4}, r:{t:'line', len:22, w:8}, e:{t:'self', r:10}},
   brand:{q:{t:'circle', range:12, r:5}, r:{t:'self', r:16}, e:{t:'circle', range:30, r:9}}, raven:{q:{t:'circle', range:40, r:18}, r:{t:'unit', range:16, r:5.5}, e:{t:'circle', range:22, r:8}}
 };
 const CKEYS = Object.keys(CMDS);
 const BUILDS = {
-  trench:     {n:'戰壕', cost:120, hp:700, r:6, t:3, s:'步兵減傷35%・騎兵減速', d:'範圍內我方步兵受遠程傷害 -35%，敵騎兵減速 30%'},
-  arrowtower: {n:'箭塔', cost:200, hp:900, r:13, t:4, s:'自動射擊・對空×2', d:'自動射擊 13 範圍內敵軍，對飛行加倍'},
-  cheval:     {n:'拒馬', cost:80, hp:400, r:3.5, t:2, s:'減速・撞擊騎兵暈眩', d:'減速地面敵軍，騎兵或衝鋒者撞上受傷並暈眩 1 秒'},
-  barracks:   {n:'前線兵營', cost:300, hp:1200, r:0, t:5, s:'部隊補員從此出發', d:'部隊補員改從這裡出發（每隊 1 座）'},
-  obelisk:    {n:'秘法方尖碑', cost:220, hp:600, r:10, t:4, s:'法師射程+20%・攻速+15%', d:'範圍內法師射程 +20%、攻速 +15%'},
-  banner:     {n:'戰旗', cost:100, hp:500, r:9, t:2, s:'範圍攻速+15%', d:'範圍內友軍攻速 +15%'},
-  watch:      {n:'瞭望塔', cost:90, hp:350, r:30, t:3, s:'視野30・反隱・辨識兵種', d:'大範圍視野，揭露隱身並辨識兵種'},
+  trench:     {n:'戰壕', cost:120, hp:850, r:7, t:3, s:'步兵減傷35%・騎兵減速', d:'範圍內我方步兵受遠程傷害 -35%，敵騎兵減速 30%'},
+  arrowtower: {n:'箭塔', cost:200, hp:1100, r:13, t:4, s:'自動射擊・對空×2', d:'自動射擊 13 範圍內敵軍（每發 30），對飛行加倍'},
+  cheval:     {n:'拒馬', cost:80, hp:500, r:3.5, t:2, s:'減速・撞擊騎兵暈眩', d:'減速地面敵軍，騎兵或衝鋒者撞上受傷並暈眩 1 秒'},
+  barracks:   {n:'前線兵營', cost:300, hp:1400, r:0, t:5, s:'部隊補員從此出發', d:'部隊補員改從這裡出發（每隊 1 座）'},
+  obelisk:    {n:'秘法方尖碑', cost:220, hp:750, r:11, t:4, s:'法師射程+20%・攻速+15%', d:'範圍內法師射程 +20%、攻速 +15%'},
+  banner:     {n:'戰旗', cost:100, hp:600, r:10, t:2, s:'範圍攻速+15%', d:'範圍內友軍攻速 +15%'},
+  watch:      {n:'瞭望塔', cost:90, hp:450, r:30, t:3, s:'視野30・反隱・辨識兵種', d:'大範圍視野，揭露隱身並辨識兵種'},
   trap:       {n:'符文陷阱', cost:60, hp:100, r:2.5, t:1, s:'隱形・踏入定身2秒', d:'隱形放置；踏入的敵軍定身 2 秒'},
-  supply:     {n:'補給站', cost:150, hp:700, r:8, t:3, s:'範圍回血・可整編', d:'範圍內友軍回血，可在此整編兵種'}
+  supply:     {n:'補給站', cost:150, hp:850, r:9, t:3, s:'部隊與指揮官回血・可整編', d:'範圍內的部隊與指揮官每秒回復 3% 生命，可在此整編兵種'}
 };
 const BKEYS = Object.keys(BUILDS);
 const BPREF = {pike:['cheval','trench','banner'], shield:['banner','supply','trench'], cav:['banner','barracks','watch'], archer:['trench','arrowtower','watch'],
@@ -1813,7 +1813,7 @@ function updateVision(fogOnly) {
       if (e.dead || e.team !== t) continue;
       let r = 0;
       if (e.kind === 'cmd') r = e.respawn > 0 ? 0 : 17; else if (e.kind === 'sol') r = 11; else if (e.kind === 'min') r = 9; else if (e.kind === 'tow' || e.kind === 'core') r = 18;
-      else if (e.kind === 'bld') r = e.built ? (e.type === 'watch' ? (e.lvl > 1 ? 40 : 30) : 9) : 4;
+      else if (e.kind === 'bld') r = e.built ? (e.type === 'watch' ? BV(e, 'vis') : 9) : 4;
       if (r) S.push([e.x, e.z, r, e.kind === 'bld' && e.type === 'watch' && e.built ? 1 : 0, e]);
     }
     for (const z of zones) if (z.kind === 'crow' && z.team === t) S.push([z.x, z.z, z.r, 1, null]);
@@ -1869,7 +1869,10 @@ function attackable(e, team) {
 }
 function findTarget(a, x, z, range, opt = {}) {
   let best = null, bd = 1e9;
-  for (const e of ents) {
+  const G2 = G && G.grid, R = range + 7;
+  const x0 = G2 ? gi(x - R) : 0, x1 = G2 ? gi(x + R) : 0, z0 = G2 ? gi(z - R) : 0, z1 = G2 ? gi(z + R) : 0;
+  for (let ci = x0; ci <= x1; ci++) for (let cj = z0; cj <= z1; cj++) {
+  for (const e of (G2 ? G2[ci*GN + cj] : ents)) {
     if (e.team === a.team || e.dead) continue;
     if (opt.noStruct && (e.kind === 'tow' || e.kind === 'core' || e.kind === 'bld')) continue;
     if (e.kind === 'neu' && (opt.noNeu || a.kind === 'min' || a.kind === 'tow' || a.kind === 'core' || a.kind === 'bld' || a.kind === 'drg')) continue;
@@ -1879,15 +1882,24 @@ function findTarget(a, x, z, range, opt = {}) {
     if (e.kind === 'neu') score += 300; else if (e.kind === 'tow' || e.kind === 'core') score += 400; else if (e.kind === 'bld') score += 150; else if (e.kind === 'cmd') score += opt.preferCmd ? -200 : 60;
     if (score < bd) { bd = score; best = e; }
   }
+  }
   return best;
 }
+// coarse spatial grid, rebuilt once per simulation step, so target searches only look at nearby cells
+const GN = 14, gi = v => { const i = ((v + 112)*0.0625) | 0; return i < 0 ? 0 : i >= GN ? GN - 1 : i; };
+function gridBuild() {
+  const g = G.grid || (G.grid = Array.from({length:GN*GN}, () => []));
+  for (const c of g) c.length = 0;
+  for (const e of ents) if (!e.dead) g[gi(e.x)*GN + gi(e.z)].push(e);
+}
 function inAura(team, x, z, type) {
-  for (const e of ents) {
+  let best = null;
+  for (const e of (G && G.bl && team < 2 ? G.bl[team] : ents)) {
     if (e.kind !== 'bld' || e.dead || !e.built || e.team !== team || e.type !== type) continue;
-    let r = BUILDS[type].r; if (type === 'obelisk' && e.owner.key === 'orion') r *= 2;
-    if ((e.x-x)**2 + (e.z-z)**2 < r*r) return e;
+    const r = bRad(e);
+    if ((e.x-x)**2 + (e.z-z)**2 < r*r && (!best || blv(e) > blv(best))) best = e;
   }
-  return null;
+  return best;
 }
 function inZone(team, x, z, kind) { for (const zz of zones) if (zz.kind === kind && zz.team === team && zz.live && (zz.x-x)**2 + (zz.z-z)**2 < zz.r*zz.r) return zz; return null; }
 const formOf = s => s.kind === 'sol' && !isComp(s) ? s.owner.grp[s.grp].form : null;
@@ -1912,9 +1924,9 @@ function hurt(t, amt, src, opt = {}) {
   if (tu && UNITS[tu].fly && su === 'archer') m *= 1.5;
   if (tu === 'shield' && srcRanged && su !== 'longbow') m *= 0.5;
   if (tu === 'dwarf' && srcRanged) m *= 0.7;
-  m *= featHurt(t, src, tu, su);
+  m *= featHurt(t, src, tu, su)*bldHurt(t, src);
   if (tu === 'priest' && src && ((src.kind === 'sol' && UNITS[su].magic) || (src.kind === 'cmd' && CMDS[src.key].magic))) m *= 0.5;
-  if (tu && UNITS[tu].inf && srcRanged) { const tr = inAura(t.team, t.x, t.z, 'trench'); if (tr) m *= tr.lvl > 1 ? 0.45 : 0.65; }
+  if (tu && UNITS[tu].inf && src) { const tr = inAura(t.team, t.x, t.z, 'trench'); if (tr) m *= 1 - (srcRanged ? BV(tr, 'red') : BV(tr, 'mel'))/100; }
   const tf = formOf(t);
   if (tf === 'circle') m *= 0.75;
   if (tf === 'square' && srcRanged) m *= 0.9;
@@ -2012,7 +2024,7 @@ function doAttack(a, t) {
     if (t.kind === 'tow' || t.kind === 'core') base *= 0.8;
   } else if (a.kind === 'tow' || a.kind === 'core') { base = (t.kind === 'cmd' ? 110 : t.kind === 'min' ? 42 : 46)*(G.behind === a.team ? 1.25 : 1); shot(a, t, TEAML[a.team], 0.4, 12); }
   else if (a.kind === 'min') { base = a.atk; if (a.ranged) shot(a, t, '#F2E6C8', 0.15); }
-  else if (a.kind === 'bld') { base = 26; if (t.kind === 'sol' && UNITS[t.utype].fly) base *= 2; shot(a, t, '#F2E6C8', 0.18, 6.5); }
+  else if (a.kind === 'bld') { base = a.type === 'arrowtower' ? BV(a, 'dmg') : 26; if (t.kind === 'sol' && UNITS[t.utype].fly) base *= 2; shot(a, t, '#F2E6C8', 0.18, 6.5); }
   hurt(t, base, a, opt);
 }
 function knock(t, a, d, dir) {
@@ -2064,7 +2076,7 @@ function castSkill(c, slot, p, tgt) {
   else if (slot === 'q') {
     if (k === 'valen') addZone({kind:'wall', team:c.team, x:p.x, z:p.z, r:5, dur:TV(c, 'v_q1', 4, 7), dps:TV(c, 'v_q2', 0, 30), owner:c, color:'#C9B48A'});
     if (k === 'sylvie') addZone({kind:'rain', team:c.team, x:p.x, z:p.z, r:6, dur:2, owner:c, dmg:TV(c, 's_q1', 13, 20)});
-    if (k === 'orion') { addZone({kind:'meteor', team:c.team, x:p.x, z:p.z, r:6, dur:1.3, delay:1, stun:TV(c, 'o_q2', 1, 1.8), owner:c, color:'#C9A0FF'}); if (hasTal(c, 'o_q1')) addZone({kind:'meteor', team:c.team, x:p.x, z:p.z, r:5, dur:2.0, delay:1.7, dmg:120, owner:c, color:'#C9A0FF'}); }
+    if (k === 'orion') { addZone({kind:'meteor', team:c.team, x:p.x, z:p.z, r:6, dur:1.5, delay:1.2, dmg:110, stun:TV(c, 'o_q2', 0.8, 1.4), owner:c, color:'#C9A0FF'}); if (hasTal(c, 'o_q1')) addZone({kind:'meteor', team:c.team, x:p.x, z:p.z, r:5, dur:2.2, delay:1.9, dmg:90, owner:c, color:'#C9A0FF'}); }
     if (k === 'gru') { for (let i = 0; i < TV(c, 'g_q1', 3, 5); i++) bigWolf(c, spawnSoldier(c, 'wolf', c.x + rnd(-2,2), c.z + rnd(-2,2), 1, 12*TV(c, 'g_p2', 1, 1.5))); addZone({kind:'flash', team:c.team, x:c.x, z:c.z, r:4, dur:0.6, owner:c, color:'#E6B07A'}); }
     if (k === 'brand') addZone({kind:'barrel', team:c.team, x:p.x, z:p.z, r:TV(c, 'b_q2', 5, 7), sdmg:TV(c, 'b_q1', 320, 480), dur:0.5, owner:c, color:'#E8A04A'});
     if (k === 'raven') addZone({kind:'crow', team:c.team, x:p.x, z:p.z, r:TV(c, 'r_q1', 18, 26), dur:TV(c, 'r_q2', 8, 16), owner:c, color:'#B892E0'});
@@ -2194,7 +2206,7 @@ function place(c, type, x, z) {
   const b = addEnt({kind:'bld', type, team:c.team, owner:c, x, z, r:type === 'trap' ? 0.8 : type === 'cheval' ? 2 : 2.2, hp, maxHp:hp, built:false, buildT:Bd.t*(c.key === 'valen' ? 0.6 : 1)*TV(c, 'b_p1', 1, 0.6), mesh:mkBuilding(type, c.team)});
   b.mesh.rotation.y = Math.atan2(CORE[1 - c.team].x - x, CORE[1 - c.team].z - z);
   setOpacity(b.mesh, 0.35);
-  if (Bd.r > 0 && type !== 'trap') { b.rr = ring(Math.min(Bd.r, 30) - 0.25, Math.min(Bd.r, 30), TEAML[c.team], type === 'watch' ? 0.12 : 0.3); b.rr.position.set(x, 0.14, z); world.add(b.rr); }
+  if (Bd.r > 0 && type !== 'trap') { b.rr = ring(Math.min(Bd.r, 30) - 0.25, Math.min(Bd.r, 30), TEAML[c.team], type === 'watch' ? 0.12 : 0.3); b.rr.position.set(x, 0.14, z); world.add(b.rr); bRing(b); }
   if (c === player) toast(`開始建造${Bd.n}`, 'b');
   return true;
 }
@@ -2290,11 +2302,16 @@ function moveTo(e, tx, tz, dt, spdMul = 1) {
 }
 function separate() {
   const L = ents.filter(e => !e.dead && (e.kind === 'sol' || e.kind === 'min' || e.kind === 'cmd' || e.kind === 'neu' || e.kind === 'drg') && !(e.kind === 'cmd' && e.respawn > 0));
-  for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
-    const a = L[i], b = L[j];
-    if ((a.kind === 'sol' && UNITS[a.utype].fly) !== (b.kind === 'sol' && UNITS[b.utype].fly)) continue;
-    const dx = b.x - a.x, dz = b.z - a.z, r = (a.r + b.r)*0.85, dd = dx*dx + dz*dz;
-    if (dd > 0.0001 && dd < r*r) { const d = Math.sqrt(dd), p = (r - d)*0.5, nx = dx/d*p, nz = dz/d*p; if (!(a.rootT > 0) && a.kind !== 'neu') { a.x -= nx; a.z -= nz; } if (!(b.rootT > 0) && b.kind !== 'neu') { b.x += nx; b.z += nz; } }
+  L.sort((a, b) => a.x - b.x);   // sweep along x: only neighbours closer than the largest pair radius can overlap
+  for (let i = 0; i < L.length; i++) {
+    const a = L[i], af = a.kind === 'sol' && UNITS[a.utype].fly;
+    for (let j = i + 1; j < L.length; j++) {
+      const b = L[j];
+      if (b.x - a.x > 8) break;
+      if (af !== (b.kind === 'sol' && UNITS[b.utype].fly)) continue;
+      const dx = b.x - a.x, dz = b.z - a.z, r = (a.r + b.r)*0.85, dd = dx*dx + dz*dz;
+      if (dd > 0.0001 && dd < r*r) { const d = Math.sqrt(dd), p = (r - d)*0.5, nx = dx/d*p, nz = dz/d*p; if (!(a.rootT > 0) && a.kind !== 'neu') { a.x -= nx; a.z -= nz; } if (!(b.rootT > 0) && b.kind !== 'neu') { b.x += nx; b.z += nz; } }
+    }
   }
 }
 function statusTick(e, dt) { if (e.stunT > 0) e.stunT -= dt; if (e.rootT > 0) e.rootT -= dt; if (e.slowT > 0) e.slowT -= dt; else e.slowF = 0; if (e.atkA > 0) e.atkA -= dt; }
@@ -2302,12 +2319,12 @@ function baseTick(e, dt) {
   const own = SPAWN[e.team], foe = SPAWN[1 - e.team];
   if ((e.x-own.x)**2 + (e.z-own.z)**2 < 196) e.hp = Math.min(e.maxHp, e.hp + e.maxHp*0.12*dt);
   if ((e.x-foe.x)**2 + (e.z-foe.z)**2 < 100) hurt(e, 160*dt, null);
-  { const sp = inAura(e.team, e.x, e.z, 'supply'); if (sp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp*(sp.lvl > 1 ? 0.045 : 0.025)*dt); }
+  { const sp = inAura(e.team, e.x, e.z, 'supply'); if (sp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp*BV(sp, 'heal')/100*dt); }
 }
 function atkCd(e, base) {
   let cd = base;
-  const bn = inAura(e.team, e.x, e.z, 'banner'); if (bn) cd /= bn.lvl > 1 ? 1.25 : 1.15;
-  if (e.kind === 'sol' && e.utype === 'mage') { const o = inAura(e.team, e.x, e.z, 'obelisk'); if (o) cd /= (o.owner.key === 'orion' ? 1.3 : 1.15) + (o.lvl > 1 ? 0.15 : 0); }
+  const bn = inAura(e.team, e.x, e.z, 'banner'); if (bn) cd /= 1 + BV(bn, 'spd')/100;
+  if (e.kind === 'sol' && UNITS[e.utype].magic) { const o = inAura(e.team, e.x, e.z, 'obelisk'); if (o && (e.utype === 'mage' || BV(o, 'all'))) cd /= 1 + (BV(o, 'spd') + (o.owner.key === 'orion' ? 15 : 0))/100; }
   if (e.kind === 'sol' && e.owner && e.owner.frenzyT > 0) cd /= 1.4;
   if (e.kind === 'sol') cd = featCd(e, cd);
   return cd;
@@ -2317,7 +2334,7 @@ function unitRange(s) {
   if (UNITS[s.utype].ranged && s.owner.key === 'sylvie') r *= 1.15;
   if (UNITS[s.utype].ranged && formOf(s) === 'line') r *= 1.15;
   if (UNITS[s.utype].ranged && beaconBonus(s)) r *= 1.2;
-  if (s.utype === 'mage') { const o = inAura(s.team, s.x, s.z, 'obelisk'); if (o) r *= (o.owner.key === 'orion' ? 1.4 : 1.2) + (o.lvl > 1 ? 0.1 : 0); }
+  if (UNITS[s.utype].magic) { const o = inAura(s.team, s.x, s.z, 'obelisk'); if (o && (s.utype === 'mage' || BV(o, 'all'))) r *= 1 + (BV(o, 'rng') + (o.owner.key === 'orion' ? 20 : 0))/100; }
   if (UNITS[s.utype].ranged && hasTal(s.owner, 's_p1')) r *= 1.1;
   if (s.utype === 'siege' && hasTal(s.owner, 'b_p2')) r *= 1.2;
   return r;
@@ -2338,7 +2355,7 @@ function groupFrame(dt) {
       if (n) {
         let reg = G.time - g.lastHitT > 3 ? 1.5 : 0;
         if (c.respawn <= 0 && Math.hypot(g.cent.x - c.x, g.cent.z - c.z) < 16) reg += 3; if (c.respawn > 0) reg -= 2;
-        { const bn = inAura(c.team, g.cent.x, g.cent.z, 'banner'); if (bn) reg += bn.lvl > 1 ? 4 : 2; } if (G.buff[c.team].titan > 0) reg += 3;
+        { const bn = inAura(c.team, g.cent.x, g.cent.z, 'banner'); if (bn) reg += BV(bn, 'mor'); const sp = inAura(c.team, g.cent.x, g.cent.z, 'supply'); if (sp) reg += BV(sp, 'mor'); } if (G.buff[c.team].titan > 0) reg += 3;
         g.mor = clamp(g.mor + reg*dt, 0, 100);
         if (g.routT > 0) { g.routT -= dt; if (g.routT <= 0) { g.mor = 45; g.order = 'rally'; g.pt = null; if (c === player) updateCmdHud(); } }
         else if (g.mor < 25) { g.routT = 5; if (isMe(c)) { toast(`第${GNUM[k]}隊士氣崩潰，正在潰散！靠近指揮官或戰旗可穩住軍心`, 'r'); say(c, 'low', true); } else if (c.team === 1 && g.mem.some(s => s.vis[0])) toast(`敵方${CMDS[c.key].n}第${GNUM[k]}隊潰散了！`, 'g'); }
@@ -2379,13 +2396,15 @@ function updateCommander(c, dt) {
   else ai(c, dt);
   c.reinT = (c.reinT || 0) - dt;
   if (c.reinT <= 0 && c.grp[0].utype) {
-    c.reinT = G.behind === c.team ? 8 : 12;
+    const br = ents.find(e => e.kind === 'bld' && e.type === 'barracks' && e.built && !e.dead && e.team === c.team);
+    c.reinT = (G.behind === c.team ? 8 : 12)*(br ? 1 - BV(br, 'cd')/100 : 1);
     const need = [0, 1].filter(k => c.grp[k].mem.length < UNITS[c.grp[k].utype].sq).sort((a, b) => c.grp[a].mem.length/UNITS[c.grp[a].utype].sq - c.grp[b].mem.length/UNITS[c.grp[b].utype].sq);
     if (need.length) {
-      const k = need[0], br = ents.find(e => e.kind === 'bld' && e.type === 'barracks' && e.built && !e.dead && e.team === c.team);
+      const k = need[0];
       const opts = [SPAWN[c.team], ...G.sps.filter(s => s.owner === c.team)]; if (br) opts.push(br);
+      for (const e of ents) if (e.kind === 'bld' && e.type === 'supply' && e.built && !e.dead && e.team === c.team && BV(e, 'rein')) opts.push(e);
       let p = opts[0], bd = 1e9; for (const o of opts) { const dd = (o.x - c.x)**2 + (o.z - c.z)**2; if (dd < bd) { bd = dd; p = o; } }
-      const U = UNITS[c.grp[k].utype], n = Math.min(U.rf + (p === br && br.lvl > 1 ? 1 : 0), U.sq - c.grp[k].mem.length);
+      const U = UNITS[c.grp[k].utype], n = Math.min(U.rf + (p === br ? BV(br, 'rf') : 0), U.sq - c.grp[k].mem.length);
       for (let i = 0; i < n; i++) spawnSoldier(c, c.grp[k].utype, p.x + rnd(-2,2), p.z + rnd(-2,2), 1, 0, k);
     }
   }
@@ -2678,7 +2697,7 @@ function updateSoldier(s, dt) {
   spdMul *= solSpeedMul(s, g);
   if (form === 'wedge') spdMul *= 1.15; if (form === 'circle') spdMul *= 0.8;
   if (g && g.dashT > 0) spdMul *= g.utype === 'cav' ? 2.2 : 1.3;
-  if (s.utype === 'cav' && inAura(1 - s.team, s.x, s.z, 'trench')) slow(s, 0.3, 0.3);
+  if (s.utype === 'cav') { const tr = inAura(1 - s.team, s.x, s.z, 'trench'); if (tr) slow(s, BV(tr, 'cav')/100, 0.3); }
   const rng = unitRange(s);
   let anchor, aggroFrom = s, aggro = 10, leash = 16, leashFrom = c, tgt = null, engage = true;
   const n = wolf ? 1 : Math.max(1, g.mem.length);
@@ -2729,7 +2748,7 @@ function updateSoldier(s, dt) {
   if (ord !== 'ambush' && !U.stealth && !(s.shadowT > G.time)) s.stealth = false;
   if (!U.fly) {
     const ch = inAura(1 - s.team, s.x, s.z, 'cheval');
-    if (ch) { slow(s, 0.4, 0.3); if ((U.mounted || ord === 'charge') && !(s.chevT > G.time)) { s.chevT = G.time + 3; hurt(s, ch.lvl > 1 ? 110 : 60, ch); s.stunT = ch.lvl > 1 ? 1.6 : 1; } }
+    if (ch) { slow(s, BV(ch, 'slow')/100, 0.3); if ((U.mounted || ord === 'charge') && !(s.chevT > G.time)) { s.chevT = G.time + 3; hurt(s, BV(ch, 'dmg'), ch); s.stunT = BV(ch, 'stun'); } }
   }
 }
 function updateMinion(m, dt) {
@@ -2749,11 +2768,12 @@ function updateTower(t, dt) {
 }
 function updateBuilding(b, dt) {
   if (!b.built) { b.buildT -= dt; if (b.buildT <= 0) { b.built = true; setOpacity(b.mesh, b.type === 'trap' ? 0.8 : 1); if (isMe(b.owner)) { toast(`${BUILDS[b.type].n}建造完成：${BUILDS[b.type].s}`, 'b'); chime(); } } return; }
-  if (b.type === 'arrowtower') { b.atkT -= dt; if (b.atkT <= 0) { const t = findTarget(b, b.x, b.z, 13, {noStruct:true}); if (t) { doAttack(b, t); if (b.lvl > 1) towerSecond(b, t); b.atkT = 1; if (b.mesh.userData.aim) b.mesh.userData.aim.rotation.y = Math.atan2(t.x - b.x, t.z - b.z) - b.mesh.rotation.y; } else b.atkT = 0.25; } }
-  if (b.type === 'trap') {
+  if (b.type === 'arrowtower') { b.atkT -= dt; if (b.atkT <= 0) { const t = findTarget(b, b.x, b.z, BV(b, 'rng'), {noStruct:true}); if (t) { doAttack(b, t); if (BV(b, 'n2')) towerExtra(b, t, BV(b, 'n2')); b.atkT = 1; if (b.mesh.userData.aim) b.mesh.userData.aim.rotation.y = Math.atan2(t.x - b.x, t.z - b.z) - b.mesh.rotation.y; } else b.atkT = 0.25; } }
+  if (b.type === 'trap' && !(b.armT > G.time)) {
     for (const e of ents) if (e.team !== b.team && !e.dead && (e.kind === 'sol' || e.kind === 'cmd' || e.kind === 'min') && !(e.kind === 'sol' && UNITS[e.utype].fly) && !(e.kind === 'cmd' && e.respawn > 0) && (e.x-b.x)**2 + (e.z-b.z)**2 < 6.25) {
-      for (const o of ents) if (o.team !== b.team && !o.dead && (o.kind === 'sol' || o.kind === 'cmd') && (o.x-b.x)**2 + (o.z-b.z)**2 < 25) { o.rootT = b.lvl > 1 ? 3 : 2; hurt(o, b.lvl > 1 ? 100 : 40, b); }
+      for (const o of ents) if (o.team !== b.team && !o.dead && (o.kind === 'sol' || o.kind === 'cmd') && (o.x-b.x)**2 + (o.z-b.z)**2 < 25) { o.rootT = BV(b, 'root'); hurt(o, BV(b, 'dmg'), b); }
       if (b.team === 0) toast('符文陷阱觸發', 'g'); else if (e.team === 0) toast('踩中敵方陷阱！', 'r');
+      b.uses = (b.uses || 0) + 1; if (b.uses < BV(b, 'ch')) { b.armT = G.time + 3; break; }
       kill(b, null); break;
     }
   }
@@ -2789,7 +2809,7 @@ function update(dt) {
   if (phase !== 'play') return;
   G.time += dt;
   if (!(G.tut && !G.tut.done)) { G.waveT -= dt; if (G.waveT <= 0) { G.waveT = 26; spawnWave(); } }
-  featTick(dt);
+  bldTick(); gridBuild(); featTick(dt); if (!SVR) supplyFx(dt);
   G.visT -= dt; if (G.visT <= 0) { G.visT = 0.2; updateVision(); }
   for (const t of [0,1]) {
     G.ravenT[t] -= dt;
@@ -3053,7 +3073,7 @@ function drawOverlay(dt) {
     } else if (e.kind === 'bld') {
       bar(p.x, p.y, 34, 4, e.built ? e.hp/e.maxHp : 1 - e.buildT/BUILDS[e.type].t, e.built ? col : C.gold);
       const Bd = BUILDS[e.type];
-      pill(p.x, p.y - 15, e.built ? (e.lvl > 1 ? `★${UPG[e.type].n}｜${UPG[e.type].d.split('，')[0]}` : `${Bd.n}｜${Bd.s}`) : `${Bd.n}｜建造中`, e.team ? '#F4A698' : '#F1D29A');
+      pill(p.x, p.y - 15, e.built ? (blv(e) > 1 ? `${bldName(e)}｜${bldShort(e.type, blv(e))}` : `${Bd.n}｜${Bd.s}`) : `${Bd.n}｜建造中`, e.team ? '#F4A698' : '#F1D29A');
     }
   }
   if (player && player.respawn <= 0 && phase === 'play') {
@@ -3430,8 +3450,8 @@ function drawLobbyPanel() {
     cap.innerHTML = `<div class="t">${Bd.s}</div><div class="n">${Bd.n}</div><div class="hint">拖曳旋轉模型</div>`;
     P2.innerHTML = `<div><div class="kick">建築圖鑑・9 種</div><h2>${Bd.n}</h2></div>
      <div class="pick">${BKEYS.map(v => `<button type="button" class="pk ${v === b ? 'on' : ''}" data-b="${v}">${icon(v, 44)}<span>${BUILDS[v].n}</span></button>`).join('')}</div>
-     <div class="dl"><div><b>造價</b><span>${glyph('gold', 16, C.gold)} ${Bd.cost} 軍資・建造 ${Bd.t} 秒・生命 ${Bd.hp}</span></div><div><b>功能</b><span>${Bd.d}</span></div><div><b>範圍</b><span>${Bd.r ? Bd.r + '（戰場上以地面圓圈標示）' : '無'}</span></div><div><b>搭配</b><span>${UKEYS.filter(u => BPREF[u].includes(b)).map(u => UNITS[u].n).join('、') || '—'}</span></div></div>
-     <p>戰場上每座建築頭上都會顯示名稱與功能，建造中會顯示進度。自己的建築可以拆除（建造列的「拆除」或 K 鍵）：完工的返還 50% 軍資，建造中的全額退還。</p>`;
+     <div class="dl"><div><b>造價</b><span>${glyph('gold', 16, C.gold)} ${Bd.cost} 軍資・建造 ${Bd.t} 秒・生命 ${Bd.hp}</span></div><div><b>功能</b><span>${Bd.d}</span></div><div><b>範圍</b><span>${Bd.r ? Bd.r + '（戰場上以地面圓圈標示）' : '無'}</span></div><div><b>搭配</b><span>${UKEYS.filter(u => BPREF[u].includes(b)).map(u => UNITS[u].n).join('、') || '—'}</span></div>${[1, 2, 3, 4, 5].map(l => `<div><b>${l === 1 ? '1 級' : `${l} 級`}</b><span>${l > 1 ? `${glyph('gold', 14, C.gold)} ${upgCostL(b, l - 1)}・` : ''}${bldEff(b, l)}</span></div>`).join('')}</div>
+     <p>完工的建築可以按 L 升級，最高 5 級，每級生命 +25%。戰場上每座建築頭上都會顯示名稱與功能，建造中會顯示進度。自己的建築可以拆除（建造列的「拆除」或 K 鍵）：完工的返還 50% 軍資，建造中的全額退還。</p>`;
     P2.querySelectorAll('[data-b]').forEach(x => x.onclick = () => { lsel.bld = x.dataset.b; drawLobbyPanel(); });
   } else {
     showModel('core', null);
@@ -3693,7 +3713,7 @@ function castE(c, p, tgt) {
   const k = c.key;
   if (k === 'valen') addZone({kind:'bastion', team:c.team, x:p.x, z:p.z, r:10, dur:8, owner:c, color:C.gold});
   else if (k === 'sylvie') { const f = Math.hypot(p.x - c.x, p.z - c.z) > 0.5 ? Math.atan2(p.x - c.x, p.z - c.z) : c.facing; c.facing = f; addZone({kind:'sweep', team:c.team, x:c.x, z:c.z, f, len:40, w:4, r:2.2, dur:0.55, dmg:150, kb:1.5, stun:0, owner:c, color:'#FFE6A0', hit:new Set()}); }
-  else if (k === 'orion') addZone({kind:'meteor', team:c.team, x:p.x, z:p.z, r:11, dur:2.1, delay:1.5, owner:c, color:'#C9A0FF', dmg:250, stun:1.5, big:true});
+  else if (k === 'orion') addZone({kind:'meteor', team:c.team, x:p.x, z:p.z, r:9, dur:2.4, delay:1.8, owner:c, color:'#C9A0FF', dmg:170, stun:1, big:true});
   else if (k === 'gru') { for (let i = 0; i < 6 + (hasTal(c, 'g_p2') ? 2 : 0); i++) bigWolf(c, spawnSoldier(c, 'wolf', c.x + rnd(-3, 3), c.z + rnd(-3, 3), 1, 15*TV(c, 'g_p2', 1, 1.5))); c.frenzyT = 8; addZone({kind:'flash', team:c.team, x:c.x, z:c.z, r:10, dur:0.8, owner:c, color:'#E6B07A'}); }
   else if (k === 'brand') { for (let i = 0; i < 5; i++) { const a = Math.random()*Math.PI*2, r = Math.sqrt(Math.random())*6; addZone({kind:'boulder', team:c.team, x:p.x + Math.sin(a)*r, z:p.z + Math.cos(a)*r, r:4, dur:1.1 + i*0.45, delay:0.8 + i*0.45, owner:c, color:'#E8A04A'}); } }
   else if (k === 'raven') {
@@ -3782,47 +3802,6 @@ const UPG = {
   trap:{n:'強化陷阱', f:0.7, hp:1, d:'定身 2 → 3 秒、傷害 40 → 100'},
   supply:{n:'野戰醫院', f:0.7, hp:1.3, d:'範圍回血速度 ×1.8'}
 };
-const upgCost = t => Math.round(BUILDS[t].cost*UPG[t].f/10)*10;
-const bldName = b => b.lvl > 1 ? UPG[b.type].n : BUILDS[b.type].n;
-function canUpg(c, b) {
-  if (!b || b.dead || b.owner !== c) return '這不是你的建築';
-  if (!b.built) return '建築還沒完工';
-  if (b.lvl > 1) return '已經升到二級';
-  if (c.gold < upgCost(b.type)) return `軍資不足（需要 ${upgCost(b.type)}）`;
-  return null;
-}
-function upgradeBld(c, b) {
-  const err = canUpg(c, b); if (err) { if (c === player) toast(err, 'r'); return false; }
-  const cost = upgCost(b.type), U = UPG[b.type];
-  c.gold -= cost; c.spent += cost; b.lvl = 2;
-  b.maxHp *= U.hp; b.hp = Math.min(b.maxHp, b.hp*U.hp);
-  upgVisual(b);
-  if (b.team === 0 || (b.vis && b.vis[0])) { fxRing(b.x, b.z, 4.5, C.gold, 0.7); sparks(b.x, 2, b.z, '#F1D29A', 14, 5, -3); }
-  if (c === player) { toast(`${BUILDS[b.type].n}升級為${U.n}：${U.d}`, 'g'); chime(); cancelUpg(); updateHud(); }
-  return true;
-}
-function upgVisual(b) {
-  const g = b.mesh; if (!g) return;
-  const gold = new THREE.MeshLambertMaterial({color:'#D9A54A', emissive:'#5A3A08'}), stone = new THREE.MeshLambertMaterial({color:'#8E8A80'});
-  const flag = new THREE.Group();
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.2, 6), new THREE.MeshLambertMaterial({color:'#5A4330'})); pole.position.y = 1.6; flag.add(pole);
-  const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), gold); cloth.material.side = THREE.DoubleSide; cloth.position.set(0.62, 2.75, 0); flag.add(cloth);
-  const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.28), gold); star.position.set(0, 3.4, 0); flag.add(star);
-  flag.position.set(b.type === 'trap' ? 0.9 : 1.7, b.type === 'watch' || b.type === 'arrowtower' ? 2.5 : 0, -1.2);
-  g.add(flag);
-  if (b.type === 'trench') for (let i = 0; i < 10; i++) {   // 碉堡: a ring of stone parapets
-    const a = i/10*Math.PI*2, blk = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 0.7), stone);
-    blk.position.set(Math.sin(a)*3.4, 0.6, Math.cos(a)*3.4); blk.rotation.y = a; blk.castShadow = true; g.add(blk);
-  }
-  b.upgFlag = flag;
-}
-function toggleUpg() {
-  if (phase !== 'play') return;
-  if (G.upg) { cancelUpg(); return; }
-  cancelAim(); cancelOAim(); cancelPlace(); cancelDemo();
-  if (!ents.some(e => e.kind === 'bld' && !e.dead && e.owner === player && e.built && !(e.lvl > 1))) { toast('目前沒有可升級的建築（需要已完工、還沒升級）', 'r'); return; }
-  G.upg = true; updateAimHud();
-}
 function cancelUpg() { if (G && G.upg) { G.upg = false; updateAimHud(); } }
 function updateUpgHL() {
   if (!G) return;
@@ -3832,7 +3811,7 @@ function updateUpgHL() {
   if (b) {
     G.upgHL.position.set(b.x, 0.26, b.z); const k = (b.r + 1)/2.6; G.upgHL.scale.set(k, k, k);
     const lab = $('aimlab'), err = canUpg(player, b);
-    const txt = err ? `${bldName(b)}：${err}` : `升級${BUILDS[b.type].n} → ${UPG[b.type].n}（${upgCost(b.type)} 軍資）：${UPG[b.type].d}・右鍵確認`;
+    const txt = err ? `${bldName(b)}：${err}` : `${bldName(b)} 升到 ${blv(b) + 1} 級（${upgCostL(b.type, blv(b))} 軍資）：${bldEff(b.type, blv(b) + 1)}・右鍵確認`;
     if (lab && lab.textContent !== txt) lab.textContent = txt;
   }
 }
@@ -3844,13 +3823,6 @@ function towerSecond(b, t) {
   }
   if (best) doAttack(b, best);
 }
-function aiUpg(c) {
-  if (c.gold < 420) return;
-  const pref = ['arrowtower', 'trench', 'barracks', 'supply', 'banner', 'obelisk', 'cheval', 'watch', 'trap'];
-  const bs = ents.filter(e => e.kind === 'bld' && !e.dead && e.owner === c && e.built && !(e.lvl > 1)).sort((a, b) => pref.indexOf(a.type) - pref.indexOf(b.type));
-  if (bs.length && c.gold - upgCost(bs[0].type) >= 250) upgradeBld(c, bs[0]);
-}
-
 // ---------- battle feedback: projectiles, sparks, shockwaves, camera shake ----------
 const PMAX = 480;
 let pGeo = null, pPts = null, pPos, pCol, pVel, pLife, pGrav, pNext = 0;
@@ -4147,7 +4119,7 @@ const TALENTS = {
   sylvie:[[['s_q1', '火箭雨', '箭雨傷害 +50%'], ['s_q2', '疾風', '箭雨冷卻 -35%']],
           [['s_r1', '萬箭齊發', '萬箭穿雲範圍 13 → 17'], ['s_r2', '釘地', '萬箭穿雲範圍內的敵軍減速 50%']],
           [['s_p1', '神射手', '遠程部隊射程再 +10%'], ['s_p2', '輕裝', '弓兵與皇家長弓手移速 +15%']]],
-  orion:[[['o_q1', '雙星', '流星墜擊後再落一顆小隕石（120 傷害）'], ['o_q2', '重力', '流星暈眩 1 → 1.8 秒']],
+  orion:[[['o_q1', '雙星', '流星墜擊後再落一顆小隕石（90 傷害）'], ['o_q2', '重力', '流星暈眩 0.8 → 1.4 秒']],
          [['o_r1', '時間凝滯', '時滯結界持續 4 → 7 秒'], ['o_r2', '虛空侵蝕', '時滯結界內的敵軍每秒受 30 傷害']],
          [['o_p1', '秘法共鳴', '戰鬥法師與死靈術士傷害 +15%'], ['o_p2', '星辰祝福', '所有技能冷卻 -12%']]],
   gru:[[['g_q1', '狼王', '狼群召喚 3 → 5 頭'], ['g_q2', '巨狼', '召喚的戰狼生命與攻擊 +60%']],
@@ -4448,6 +4420,148 @@ function drawCampsMini(mctx, Pm) {
 }
 function campLabel(e) { return e.camp ? e.camp.n : ''; }
 
+// ================= v1.1: building levels 1–5 =================
+// Every completed building can be upgraded four times. Values are listed per level (index 0 = level 1).
+const BMAX = 5;
+const BLV = {
+  trench:     {red:[35, 45, 50, 55, 60], mel:[0, 0, 10, 15, 20], cav:[30, 35, 40, 45, 50]},
+  arrowtower: {dmg:[30, 34, 40, 46, 54], rng:[13, 14, 15, 16, 17], n2:[0, 1, 1, 2, 2]},
+  cheval:     {dmg:[60, 110, 140, 170, 200], stun:[1, 1.6, 1.8, 2, 2.2], slow:[40, 45, 50, 55, 60]},
+  barracks:   {rf:[0, 1, 1, 2, 2], cd:[0, 0, 15, 25, 35]},
+  obelisk:    {rng:[20, 30, 35, 40, 45], spd:[15, 30, 35, 40, 50], all:[0, 0, 1, 1, 1]},
+  banner:     {spd:[15, 25, 30, 35, 40], mor:[2, 4, 5, 6, 7], dmg:[0, 0, 0, 8, 12]},
+  watch:      {vis:[30, 40, 45, 50, 55], mark:[0, 0, 8, 12, 15]},
+  trap:       {root:[2, 3, 3.5, 4, 4.5], dmg:[40, 100, 140, 180, 220], ch:[1, 1, 1, 2, 2]},
+  supply:     {heal:[3, 4.5, 5.5, 6.5, 8], r:[9, 10, 11, 12, 13], rein:[0, 1, 1, 1, 1], mor:[0, 0, 2, 3, 4]}
+};
+const blv = b => Math.max(1, Math.min(BMAX, b && b.lvl || 1));
+const BV = (b, k) => BLV[b.type][k][blv(b) - 1];
+// aura radius grows 8% per level (the supply station has its own table, the watchtower uses its vision)
+function bRad(b) {
+  const T = b.type, l = blv(b);
+  if (T === 'supply') return BLV.supply.r[l - 1];
+  if (T === 'watch') return BLV.watch.vis[l - 1];
+  let r = BUILDS[T].r*(1 + 0.08*(l - 1));
+  if (T === 'obelisk' && b.owner && b.owner.key === 'orion') r *= 2;
+  return r;
+}
+const UPF = [0.6, 0.8, 1.0, 1.25];      // upgrade price as a share of the build price, for levels 2..5
+const upgCostL = (type, lvl) => Math.round(BUILDS[type].cost*UPF[lvl - 1]/10)*10;
+function bldEff(type, l) {
+  const V = k => BLV[type][k][l - 1];
+  switch (type) {
+    case 'trench': return `我方步兵受遠程傷害 -${V('red')}%${V('mel') ? `、受近戰 -${V('mel')}%` : ''}，敵騎兵減速 ${V('cav')}%`;
+    case 'arrowtower': return `每發 ${V('dmg')} 傷害、射程 ${V('rng')}${V('n2') ? `、每次多射 ${V('n2')} 箭` : ''}，對飛行加倍`;
+    case 'cheval': return `敵軍減速 ${V('slow')}%，撞上的騎兵或衝鋒者受 ${V('dmg')} 傷害並暈眩 ${V('stun')} 秒`;
+    case 'barracks': return `部隊補員從這裡出發${V('rf') ? `，每次多 ${V('rf')} 人` : ''}${V('cd') ? `，全隊補員間隔 -${V('cd')}%` : ''}`;
+    case 'obelisk': return `${V('all') ? '所有魔法兵種（法師、死靈術士、祭司）' : '法師'}射程 +${V('rng')}%、攻速 +${V('spd')}%`;
+    case 'banner': return `範圍內友軍攻速 +${V('spd')}%、士氣回復 +${V('mor')}／秒${V('dmg') ? `、傷害 +${V('dmg')}%` : ''}`;
+    case 'watch': return `視野 ${V('vis')}、揭露隱身、辨識兵種${V('mark') ? `，視野內敵軍受到的傷害 +${V('mark')}%` : ''}`;
+    case 'trap': return `隱形；踏入的敵軍定身 ${V('root')} 秒並受 ${V('dmg')} 傷害${V('ch') > 1 ? '，可以觸發 2 次' : ''}`;
+    case 'supply': return `範圍內部隊與指揮官每秒回復 ${V('heal')}% 生命${V('mor') ? `、士氣 +${V('mor')}／秒` : ''}${V('rein') ? '，也是補員點' : ''}；可在此整編`;
+  }
+  return '';
+}
+const bldShort = (type, l) => bldEff(type, l).split(/[，、；]/)[0];
+const bldName = b => (blv(b) > 1 ? '★'.repeat(blv(b) - 1) + UPG[b.type].n : BUILDS[b.type].n);
+function canUpg(c, b) {
+  if (!b || b.dead || b.owner !== c) return '這不是你的建築';
+  if (!b.built) return '建築還沒完工';
+  if (blv(b) >= BMAX) return `已經是最高等級（${BMAX} 級）`;
+  const cost = upgCostL(b.type, blv(b));
+  if (c.gold < cost) return `軍資不足（需要 ${cost}）`;
+  return null;
+}
+function upgradeBld(c, b) {
+  const err = canUpg(c, b); if (err) { if (c === player) toast(err, 'r'); return false; }
+  const cost = upgCostL(b.type, blv(b));
+  c.gold -= cost; c.spent += cost; b.lvl = blv(b) + 1;
+  b.maxHp *= 1.25; b.hp = Math.min(b.maxHp, b.hp*1.25 + b.maxHp*0.2);
+  if (b.type === 'trap') b.uses = 0;
+  upgVisual(b);
+  if (b.team === 0 || (b.vis && b.vis[0])) { fxRing(b.x, b.z, 4.5, C.gold, 0.7); sparks(b.x, 2, b.z, '#F1D29A', 14, 5, -3); }
+  if (c === player) { toast(`${BUILDS[b.type].n}升到 ${b.lvl} 級：${bldEff(b.type, b.lvl)}`, 'g'); chime(); cancelUpg(); updateHud(); }
+  return true;
+}
+// level 2 raises a gold banner; each further level adds a star to it, grows the building a little and widens its ring
+function upgVisual(b) {
+  const g = b.mesh; if (!g) return;
+  const l = blv(b);
+  if (!b.upgFlag) {
+    const gold = new THREE.MeshLambertMaterial({color:'#D9A54A', emissive:'#5A3A08'}), stone = new THREE.MeshLambertMaterial({color:'#8E8A80'});
+    const flag = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 4.4, 6), new THREE.MeshLambertMaterial({color:'#5A4330'})); pole.position.y = 2.2; flag.add(pole);
+    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), gold); cloth.material.side = THREE.DoubleSide; cloth.position.set(0.62, 2.75, 0); flag.add(cloth);
+    flag.position.set(b.type === 'trap' ? 0.9 : 1.7, b.type === 'watch' || b.type === 'arrowtower' ? 2.5 : 0, -1.2);
+    g.add(flag);
+    if (b.type === 'trench') for (let i = 0; i < 10; i++) {   // 碉堡: a ring of stone parapets
+      const a = i/10*Math.PI*2, blk = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 0.7), stone);
+      blk.position.set(Math.sin(a)*3.4, 0.6, Math.cos(a)*3.4); blk.rotation.y = a; blk.castShadow = true; g.add(blk);
+    }
+    b.upgFlag = flag; b.upgStars = 0; b.upgGold = gold;
+  }
+  while (b.upgStars < l - 1) { const st = new THREE.Mesh(new THREE.OctahedronGeometry(0.26), b.upgGold); st.position.set(0, 3.3 + b.upgStars*0.5, 0); b.upgFlag.add(st); b.upgStars++; }
+  if (!b.baseScale) b.baseScale = g.scale.x || 1;
+  g.scale.setScalar(b.baseScale*(1 + 0.04*(l - 1)));
+  bRing(b);
+}
+function bRing(b) { if (b.rr && BUILDS[b.type].r > 0) b.rr.scale.setScalar(bRad(b)/Math.min(BUILDS[b.type].r, 30)); }
+function toggleUpg() {
+  if (phase !== 'play') return;
+  if (G.upg) { cancelUpg(); return; }
+  cancelAim(); cancelOAim(); cancelPlace(); cancelDemo();
+  if (!ents.some(e => e.kind === 'bld' && !e.dead && e.owner === player && e.built && blv(e) < BMAX)) { toast(`目前沒有可升級的建築（需要已完工、還沒到 ${BMAX} 級）`, 'r'); return; }
+  G.upg = true; updateAimHud();
+}
+function aiUpg(c) {
+  if (c.gold < 400) return;
+  const pref = ['arrowtower', 'trench', 'supply', 'barracks', 'banner', 'obelisk', 'cheval', 'watch', 'trap'];
+  const bs = ents.filter(e => e.kind === 'bld' && !e.dead && e.owner === c && e.built && blv(e) < BMAX).sort((a, b) => blv(a) - blv(b) || pref.indexOf(a.type) - pref.indexOf(b.type));
+  if (bs.length && c.gold - upgCostL(bs[0].type, blv(bs[0])) >= 250) upgradeBld(c, bs[0]);
+}
+// extra arrows from upgraded arrow towers, each at a different nearby target
+function towerExtra(b, t, n) {
+  const R = BV(b, 'rng'), hit = new Set([t]);
+  for (let k = 0; k < n; k++) {
+    let best = null, bd = R*R;
+    for (const e of ents) {
+      if (hit.has(e) || e.dead || e.team === b.team || e.team > 1 || !(e.kind === 'sol' || e.kind === 'min' || (e.kind === 'cmd' && e.respawn <= 0)) || !e.vis[b.team]) continue;
+      const d = (e.x - b.x)**2 + (e.z - b.z)**2; if (d < bd) { bd = d; best = e; }
+    }
+    if (!best) return;
+    hit.add(best); doAttack(b, best);
+  }
+}
+// buildings of each side, refreshed once per simulation step (aura checks run thousands of times a second)
+function bldTick() {
+  G.bl = [[], []];
+  for (const e of ents) if (e.kind === 'bld' && !e.dead && e.built && e.team < 2) G.bl[e.team].push(e);
+}
+// marked by an enemy watchtower (level 3+): takes more damage
+function watchMark(t) {
+  if (!G || !G.bl || t.team > 1) return 1;
+  for (const w of G.bl[1 - t.team]) if (w.type === 'watch' && blv(w) >= 3) { const r = BV(w, 'vis'); if ((w.x - t.x)**2 + (w.z - t.z)**2 < r*r) return 1 + BV(w, 'mark')/100; }
+  return 1;
+}
+// green sparkles on units being healed by a supply station / field hospital (visible feedback for the healing)
+function supplyFx(dt) {
+  G.sfxT = (G.sfxT || 0) - dt; if (G.sfxT > 0) return; G.sfxT = 0.35;
+  for (const b of ents) {
+    if (b.kind !== 'bld' || b.type !== 'supply' || b.dead || !b.built || !(b.team === 0 || b.vis[0])) continue;
+    const r = bRad(b);
+    b.pulseT = (b.pulseT || 0) - 0.35; if (b.pulseT <= 0) { b.pulseT = 2.4; fxRing(b.x, b.z, r, '#7CD08A', 1.2, 0.35); }
+    for (const e of ents) {
+      if (e.dead || e.team !== b.team || !(e.kind === 'sol' || e.kind === 'cmd') || (e.kind === 'cmd' && e.respawn > 0) || e.hp >= e.maxHp - 0.5) continue;
+      if ((e.x - b.x)**2 + (e.z - b.z)**2 < r*r && Math.random() < 0.5) sparks(e.x, 1.2, e.z, '#9FE0A0', 2, 1.6, -3, 1);
+    }
+  }
+}
+function bldHurt(t, src) {
+  let m = watchMark(t);
+  if (src && src.kind === 'sol' && src.team < 2) { const bn = inAura(src.team, src.x, src.z, 'banner'); if (bn && BV(bn, 'dmg')) m *= 1 + BV(bn, 'dmg')/100; }
+  return m;
+}
+
 // ================= v1.0: online multiplayer =================
 // One authoritative simulation runs on the Node server (server/server.js loads this same file with globalThis.NETSV set).
 // Browsers send commands, receive ~10 snapshots a second and only render. A client on the red team sees the map
@@ -4455,7 +4569,7 @@ function campLabel(e) { return e.camp ? e.camp.n : ''; }
 // minimap, "我方/敵方") keeps working unchanged; positions, teams and lanes are mirrored on the way in and out.
 const SVR = globalThis.NETSV || null;
 const NET = {client:false, team:0, mirror:false, ws:null, url:'', name:'', id:null, room:null, you:null, ents:new Map(), zmap:new Map(), lastSend:0, mv:{x:0, z:0}, rpickS:'', snapN:0, hp:new Map()};
-const NET_VER = '1.0.0';      // must match the server's copy of the game
+const NET_VER = '1.1.0';      // must match the server's copy of the game
 const NET_URL_DEFAULT = '';   // build_itch.py can bake the server address in
 const MIRL = {top:'bot', mid:'mid', bot:'top'};
 const CAMPMIR = {wolfB:'wolfR', wolfR:'wolfB', golemB:'golemR', golemR:'golemB', mercN:'mercS', mercS:'mercN'};
@@ -4615,7 +4729,7 @@ function netSpawn(d) {
   }
   else if (d.k === 'drg') { o.life = 120; o.mesh = mkDragon(); o.mesh.scale.setScalar(0.62); o.mesh.add(ring(5, 5.6, TEAML[tm], 0.9)); }
   addEnt(o); o.id = d.i; o.vis = [tm === 0, tm === 1];
-  if (d.k === 'bld') { const Bd = BUILDS[d.ty]; if (Bd.r > 0 && d.ty !== 'trap') { o.rr = ring(Math.min(Bd.r, 30) - 0.25, Math.min(Bd.r, 30), TEAML[tm], d.ty === 'watch' ? 0.12 : 0.3); o.rr.position.set(x, 0.14, z); world.add(o.rr); } }
+  if (d.k === 'bld') { const Bd = BUILDS[d.ty]; if (Bd.r > 0 && d.ty !== 'trap') { o.rr = ring(Math.min(Bd.r, 30) - 0.25, Math.min(Bd.r, 30), TEAML[tm], d.ty === 'watch' ? 0.12 : 0.3); o.rr.position.set(x, 0.14, z); world.add(o.rr); bRing(o); } }
   NET.ents.set(d.i, o);
   if (d.k === 'cmd' && d.i === NET.you.cmd) netGotPlayer(o);
 }
@@ -4633,16 +4747,19 @@ function netRemove(id) {
   if (seen && (e.kind === 'tow' || e.kind === 'bld' || e.kind === 'core')) { fxRing(e.x, e.z, e.r + 4, '#C8B59A', 0.7); sparks(e.x, 2, e.z, '#9C8A74', 26, 7, 10, 0.5); shake(e.kind === 'bld' ? 0.25 : 0.6, e.x, e.z); }
 }
 function netApply(S) {
-  NET.snapN++;
+  NET.snapN++; NET.lt = S.t; if (S.full || NET.rt === undefined) NET.rt = S.t - 0.18;
   NET.prev = player ? {rs:player.respawn, lvl:player.lvl} : null;
   for (const d of S.n) netSpawn(d);
   for (const a of S.e) {
     const e = NET.ents.get(a[0]); if (!e) continue;
-    e.tx = NMX(a[1]/10); e.tz = NMX(a[2]/10); if (!(e === player && NET.mv && (NET.mv.x || NET.mv.z))) e.facing = NMF(a[3]/100);
+    const nx = NMX(a[1]/10), nz = NMX(a[2]/10);
+    if (e.t1 === undefined || S.full || (nx - e.x1)**2 + (nz - e.z1)**2 > 225) { e.x0 = e.x1 = nx; e.z0 = e.z1 = nz; e.t0 = e.t1 = S.t; }
+    else { const t0 = Math.max(e.t1, S.t - 0.1); e.x0 = e.x1; e.z0 = e.z1; e.t0 = Math.min(t0, S.t - 0.02); e.x1 = nx; e.z1 = nz; e.t1 = S.t; }
+    e.tx = nx; e.tz = nz; if (!(e === player && NET.mv && (NET.mv.x || NET.mv.z))) e.facing = NMF(a[3]/100);
     const hp0 = e.hp; e.hp = a[4]; e.maxHp = a[5];
     const b = a[6]; e.vis = NMV(b); e.stealth = !!(b & 8); e.stunT = b & 16 ? 0.2 : 0; e.rootT = b & 256 ? 0.2 : 0;
     if (a[7]) e.atkA = 0.35;
-    if (e.kind === 'bld') { const built = !!(b & 64); if (built && !e.built) setOpacity(e.mesh, e.type === 'trap' ? 0.8 : 1); e.built = built; e.buildT = a[9]/10; if (a[8] > 1 && !(e.lvl > 1)) { e.lvl = a[8]; upgVisual(e); } }
+    if (e.kind === 'bld') { const built = !!(b & 64); if (built && !e.built) setOpacity(e.mesh, e.type === 'trap' ? 0.8 : 1); e.built = built; e.buildT = a[9]/10; if (a[8] !== (e.lvl || 1)) { e.lvl = a[8]; upgVisual(e); } }
     else if (e.kind === 'tow' || e.kind === 'core') e.prot = !!(b & 128);
     else if (e.kind === 'cmd') { const rs0 = e.respawn; e.respawn = a[8]/10; e.lvl = a[9]; e.streak = a[10]; if (a[11]) e.cmdA = 0.6; if (rs0 > 0 && e.respawn <= 0) { e.x = e.tx; e.z = e.tz; } if (e.respawn > 0) e.hp = 0; }
     else if (e.kind === 'drg') e.life = a[8];
@@ -4727,14 +4844,20 @@ function netToast(m) {
 }
 // per-frame work on a client: smooth movement, zone visuals, fog, HUD bits, outgoing input
 function netTick(dt) {
-  const k = Math.min(1, dt*12);
+  // render the world about 0.18 s behind the newest snapshot and interpolate between snapshots;
+  // the render clock speeds up or slows down a little to follow the server, so late or bunched packets don't stutter
+  if (NET.lt !== undefined) {
+    const want = NET.lt - 0.18, gap = want - NET.rt;
+    if (Math.abs(gap) > 0.6) NET.rt = want; else NET.rt += dt*(1 + clamp(gap*2.5, -0.35, 0.35));
+  }
+  const rt = NET.rt || 0;
   for (const e of ents) {
-    if (e.tx === undefined || e.dead) continue;
-    if (e === player && e.respawn <= 0) continue;
-    const dx = e.tx - e.x, dz = e.tz - e.z;
-    if (dx*dx + dz*dz > 400) { e.x = e.tx; e.z = e.tz; } else { e.x += dx*k; e.z += dz*k; }
+    if (e.dead) continue;
     if (e.atkA > 0) e.atkA = Math.max(0, e.atkA - dt);
     if (e.cmdA > 0) e.cmdA = Math.max(0, e.cmdA - dt);
+    if (e.t1 === undefined || (e === player && e.respawn <= 0)) continue;
+    const span = e.t1 - e.t0, k = span > 0.001 ? clamp((rt - e.t0)/span, 0, 1.1) : 1;
+    e.x = e.x0 + (e.x1 - e.x0)*k; e.z = e.z0 + (e.z1 - e.z0)*k;
   }
   // our own commander moves at once and is pulled back only when it drifts from the server's copy
   if (player && player.respawn <= 0) {
@@ -4747,7 +4870,7 @@ function netTick(dt) {
   if (player) for (const s of ['qT', 'rT', 'eT']) if (player[s] > 0) player[s] = Math.max(0, player[s] - dt);
   if (player) for (const g of player.grp) { if (g.skT > 0) g.skT = Math.max(0, g.skT - dt); if (g.reformT > 0) g.reformT = Math.max(0, g.reformT - dt); }
   if (phase === 'play' || phase === 'pause') G.time += dt;   // smooth between snapshots; every snapshot resets it
-  updateZones(dt);
+  updateZones(dt); supplyFx(dt);
   G.visT -= dt; if (G.visT <= 0) { G.visT = 0.2; updateVision(true); }
   G.f2T = (G.f2T || 0) - dt;
   if (G.f2T <= 0 && player) {
@@ -4835,7 +4958,7 @@ function netOnMsg(m) {
   else if (m.t === 'err') { netErr(m.msg); if (m.gone) { try { localStorage.removeItem('fhwz-net-tok'); } catch (e) {} } }
   else if (m.t === 'room') { NET.room = m; if (phase === 'lobby') drawNetRoom(); }
   else if (m.t === 'start') netClientStart(m);
-  else if (m.t === 'snap') { if (!NET.client) return; if (G && G.net) netApply(m.s); else (NET.pend = NET.pend || []).push(m.s); }
+  else if (m.t === 'snap' || m.t === 'me') { if (!NET.client) return; const q = m.t === 'me' ? {me:m} : m.s; if (G && G.net) netApplyAny(q); else (NET.pend = NET.pend || []).push(q); }
   else if (m.t === 'over') netOver(m);
 }
 function openNetLobby() {
@@ -4880,7 +5003,7 @@ function netClientStart(m) {
   try { localStorage.setItem('fhwz-net-tok', JSON.stringify({code:m.code, tok:m.you.tok, url:NET.url})); } catch (e) {}
   const b = $('netBox'); if (b) b.remove();
   closeModal();
-  startWhenArt(() => { newGame(m.you.key, 'net'); G.net = true; G.muster = m.muster || 30; camT.x = SPAWN[0].x; camT.z = SPAWN[0].z; if (NET.pend) { const q = NET.pend; NET.pend = null; q.forEach(netApply); } });
+  startWhenArt(() => { newGame(m.you.key, 'net'); G.net = true; G.muster = m.muster || 30; camT.x = SPAWN[0].x; camT.z = SPAWN[0].z; if (NET.pend) { const q = NET.pend; NET.pend = null; q.forEach(netApplyAny); } });
 }
 function netOver(m) {
   try { localStorage.removeItem('fhwz-net-tok'); } catch (e) {}
@@ -4901,6 +5024,15 @@ function netLost() {
   modal.classList.add('show');
   if (rj) $('nlRe').onclick = () => { $('netMsg').textContent = '連線中…'; netConnect(rj.url || NET.url, () => netSend({t:'rejoin', code:rj.code, tok:rj.tok})); };
   $('nlQuit').onclick = () => { netDrop(); showLobby(); };
+}
+
+// a snapshot is sent once to everyone ('snap'), followed by each player's own part ('me')
+function netApplyAny(q) {
+  if (!q.me) { netApply(q); return; }
+  const m = q.me;
+  for (const f of m.fl || []) floaters.push({x:NMX(f[0]), y:f[1], z:NMX(f[2]), s:f[3], c:f[4], t:f[5]});
+  for (const t of m.to || []) netToast(t);
+  if (m.P && player) netPrivApply(m.P);
 }
 
 // ================= loop =================

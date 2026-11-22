@@ -59,13 +59,16 @@ class Sock {
     if (n < 126) h[1] = n; else if (n < 65536) { h[1] = 126; h.writeUInt16BE(n, 2); } else { h[1] = 127; h.writeBigUInt64BE(BigInt(n), 2); }
     try { this.s.write(Buffer.concat([h, payload])); } catch (e) { this.closed(); }
   }
-  send(obj) {
-    let p = Buffer.from(typeof obj === 'string' ? obj : JSON.stringify(obj), 'utf8');
-    if (this.deflate && p.length > 200) { p = zlib.deflateRawSync(p, {finishFlush: zlib.constants.Z_SYNC_FLUSH}).subarray(0, -4); this.frame(1, p, true); }
-    else this.frame(1, p, false);
-  }
+  send(obj) { this.sendPacked(pack(obj)); }
+  sendPacked(pk) { if (this.deflate && pk.z) this.frame(1, pk.z, true); else this.frame(1, pk.raw, false); }
   close() { if (this.open) { this.frame(8, Buffer.alloc(0)); try { this.s.end(); } catch (e) {} } this.closed(); }
   closed() { if (!this.open) return; this.open = false; try { this.s.destroy(); } catch (e) {} this.onclose(); }
+}
+
+// a message encoded once (plain and compressed) so the same bytes can go to every player
+function pack(obj) {
+  const raw = Buffer.from(typeof obj === 'string' ? obj : JSON.stringify(obj), 'utf8');
+  return {raw, z: raw.length > 200 ? zlib.deflateRawSync(raw, {level: 3, finishFlush: zlib.constants.Z_SYNC_FLUSH}).subarray(0, -4) : null};
 }
 
 // ---------------- rooms ----------------
@@ -145,11 +148,12 @@ function roomTick2(r) {
 }
 function sendSnap(r) {
   const api = r.api, S = api.netSnap(), fl = S.fl, pt = S.pt; delete S.fl; delete S.pt;
+  const shared = pack({t: 'snap', s: S});          // encoded and compressed once for everyone
   for (const p of r.players) {
     if (!p.ws) continue;
     const c = api.cmdOf(p.cid); if (!c) continue;
-    const mine = Object.assign({}, S, {P: api.netPriv(c), fl: fl.filter(f => f[0] === p.cid).map(f => f.slice(1)), to: S.to.concat(pt.filter(t => t[0] === p.cid).map(t => [t[1], t[2], 1]))});
-    p.ws.send({t: 'snap', s: mine});
+    p.ws.sendPacked(shared);
+    p.ws.send({t: 'me', P: api.netPriv(c), fl: fl.filter(f => f[0] === p.cid).map(f => f.slice(1)), to: pt.filter(t => t[0] === p.cid).map(t => [t[1], t[2], 1])});
   }
 }
 function endRoom(r) {
