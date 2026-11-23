@@ -4774,10 +4774,10 @@ function drawShop(P2, cap) {
 // single player, the lowest rank among the humans online. Everything above that level is off for every commander,
 // AI included, and the AI strength on both sides follows the level too.
 const RANKS = [
-  {n:'見習指揮官', xp:0,    foe:0.8, ally:1.1, smart:false, u:['o:advance', 'o:hold', 'o:rally', 'o:retreat', 'o:move', 'q', 'unit:pike', 'unit:shield', 'unit:archer', 'cmd:valen', 'cmd:sylvie', 'cmd:gru']},
+  {n:'見習指揮官', xp:0,    foe:0.8, ally:1.1, smart:false, u:['o:advance', 'o:hold', 'o:rally', 'o:retreat', 'o:move', 'o:focus', 'q', 'reform', 'unit:pike', 'unit:shield', 'unit:archer', 'cmd:valen', 'cmd:sylvie', 'cmd:gru']},
   {n:'百夫長',     xp:100,  foe:0.9, ally:1.1, smart:false, u:['r', 'unit:cav', 'unit:priest', 'team', 'deploy', 'cmd:brand']},
-  {n:'千夫長',     xp:250,  foe:1, ally:1.05, smart:false, u:['uskill', 'form', 'o:charge', 'o:focus', 'b:trench', 'b:arrowtower', 'b:cheval', 'online']},
-  {n:'騎士隊長',   xp:450,  foe:1, ally:1, smart:false, u:['b:supply', 'b:banner', 'b:watch', 'reform', 'unit:mage', 'unit:scout', 'cmd:orion', 'obj']},
+  {n:'千夫長',     xp:250,  foe:1, ally:1.05, smart:false, u:['uskill', 'form', 'o:charge', 'b:trench', 'b:arrowtower', 'b:cheval', 'online']},
+  {n:'騎士隊長',   xp:450,  foe:1, ally:1, smart:false, u:['b:supply', 'b:banner', 'b:watch', 'unit:mage', 'unit:scout', 'cmd:orion', 'obj']},
   {n:'軍團長',     xp:750,  foe:1, ally:1, smart:true, u:['e', 'armory', 'unit:griffin', 'unit:siege', 'cmd:raven', 'o:ambush']},
   {n:'將軍',       xp:1100, foe:1.05, ally:1, smart:true, u:['talent', 'upg', 'b:barracks', 'b:obelisk', 'b:trap']},
   {n:'大將軍',     xp:1550, foe:1.1, ally:1, smart:true, u:['camps', 'faction']},
@@ -4856,7 +4856,7 @@ function rankIntro() {
 // minimap, "我方/敵方") keeps working unchanged; positions, teams and lanes are mirrored on the way in and out.
 const SVR = globalThis.NETSV || null;
 const NET = {client:false, team:0, mirror:false, ws:null, url:'', name:'', id:null, room:null, you:null, ents:new Map(), zmap:new Map(), lastSend:0, mv:{x:0, z:0}, rpickS:'', snapN:0, hp:new Map()};
-const NET_VER = '1.3.0';      // must match the server's copy of the game
+const NET_VER = '1.3.2';      // must match the server's copy of the game
 const NET_URL_DEFAULT = '';   // build_itch.py can bake the server address in
 const MIRL = {top:'bot', mid:'mid', bot:'top'};
 const CAMPMIR = {wolfB:'wolfR', wolfR:'wolfB', golemB:'golemR', golemR:'golemB', mercN:'mercS', mercS:'mercN'};
