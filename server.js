@@ -76,17 +76,23 @@ const rooms = new Map();      // code -> room
 const clients = new Set();
 let nextId = 1;
 const code5 = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s; do { s = ''; for (let i = 0; i < 5; i++) s += A[crypto.randomInt(A.length)]; } while (rooms.has(s)); return s; };
+const cleanSk = sk => {   // cosmetic skin choices sent by the browser: keep only well-formed ids
+  const o = {c: '', u: {}}; if (!sk || typeof sk !== 'object') return o;
+  if (typeof sk.c === 'string' && /^[a-z]{2,10}_[a-z]{2,10}$/.test(sk.c)) o.c = sk.c;
+  if (sk.u && typeof sk.u === 'object') for (const [k, v] of Object.entries(sk.u).slice(0, 24)) if (/^[a-z]{2,12}$/.test(k) && (v === k + ':gold' || v === k + ':dark')) o.u[k] = v;
+  return o;
+};
 const clean = s => String(s || '').replace(/[<>&"'`]/g, '').trim().slice(0, 12) || '指揮官';
 
-function roomInfo(r) { return {t: 'room', code: r.code, host: r.host, state: r.state, players: r.players.map(p => ({id: p.id, name: p.name, team: p.team, slot: p.slot, key: p.key, on: !!p.ws}))}; }
+function roomInfo(r) { return {t: 'room', code: r.code, host: r.host, state: r.state, players: r.players.map(p => ({id: p.id, name: p.name, team: p.team, slot: p.slot, key: p.key, rk: p.rk, on: !!p.ws}))}; }
 function broadcastRoom(r) { const m = JSON.stringify(roomInfo(r)); for (const p of r.players) if (p.ws) p.ws.send(m); }
 function freeSlot(r, team) { for (let i = 0; i < 3; i++) if (!r.players.some(p => p.team === team && p.slot === i)) return i; return -1; }
 function freeKey(r, team, want, self) { const used = new Set(r.players.filter(p => p.team === team && p !== self).map(p => p.key)); if (want && CKEYS.includes(want) && !used.has(want)) return want; return CKEYS.find(k => !used.has(k)); }
-function addPlayer(r, cl, key) {
+function addPlayer(r, cl, key, sk, rk) {
   if (r.players.length >= 6) return '房間已滿（6 人）';
   const n0 = r.players.filter(p => p.team === 0).length, n1 = r.players.filter(p => p.team === 1).length;
   const team = n0 <= n1 ? (freeSlot(r, 0) >= 0 ? 0 : 1) : (freeSlot(r, 1) >= 0 ? 1 : 0);
-  const p = {id: cl.id, name: cl.name, team, slot: freeSlot(r, team), key: null, tok: crypto.randomBytes(12).toString('hex'), ws: cl.ws, cl};
+  const p = {id: cl.id, name: cl.name, team, slot: freeSlot(r, team), key: null, sk: cleanSk(sk), rk: Math.max(1, Math.min(8, Math.floor(+rk) || 1)), tok: crypto.randomBytes(12).toString('hex'), ws: cl.ws, cl};
   p.key = freeKey(r, team, key, p);
   r.players.push(p); cl.room = r; cl.p = p;
   return null;
@@ -106,19 +112,20 @@ function startMatch(r) {
     const pool = CKEYS.filter(k => !used.has(k)).sort(() => Math.random() - 0.5);
     for (let slot = 0; slot < 3; slot++) {
       const p = r.players.find(q => q.team === team && q.slot === slot);
-      lineup.push(p ? {team, slot, key: p.key, cid: 'p' + p.id, name: p.name} : {team, slot, key: pool.pop()});
+      lineup.push(p ? {team, slot, key: p.key, cid: 'p' + p.id, name: p.name, sk: p.sk && p.sk.c && p.sk.c.startsWith(p.key + '_') ? p.sk.c : '', skU: p.sk ? p.sk.u : {}} : {team, slot, key: pool.pop()});
     }
   }
+  lineup.flv = Math.min(...r.players.map(p => p.rk || 1));     // everyone plays with what the least experienced player has unlocked
   let api;
   try { api = createMatch(lineup); } catch (e) { console.error('match start failed', e); for (const p of r.players) if (p.ws) p.ws.send({t: 'err', msg: '伺服器開局失敗：' + e.message}); return; }
-  r.api = api; r.state = 'game'; r.step = 0; r.last = Date.now(); r.acc = 0; r.idleT = 0;
+  r.api = api; r.flv = lineup.flv; r.state = 'game'; r.step = 0; r.last = Date.now(); r.acc = 0; r.idleT = 0;
   for (const p of r.players) { p.cid = 'p' + p.id; if (p.ws) sendStart(r, p, false); }
   broadcastRoom(r);
   r.timer = setInterval(() => roomTick(r), 1000*TICK);
 }
 function sendStart(r, p, full) {
   const c = r.api.cmdOf(p.cid);
-  p.ws.send({t: 'start', code: r.code, muster: r.api.G.muster, you: {team: p.team, key: p.key, cmd: c.id, tok: p.tok}});
+  p.ws.send({t: 'start', code: r.code, muster: r.api.G.muster, flv: r.flv, you: {team: p.team, key: p.key, cmd: c.id, tok: p.tok}});
   if (full) { const S = r.api.netFull(); S.P = r.api.netPriv(c); p.ws.send({t: 'snap', s: S}); }
 }
 function roomTick(r) {
@@ -175,14 +182,14 @@ function onMessage(cl, m) {
     case 'create': {
       if (r) leave(cl);
       const room = {code: code5(), host: cl.id, players: [], state: 'lobby'};
-      rooms.set(room.code, room); addPlayer(room, cl, m.key); broadcastRoom(room); break;
+      rooms.set(room.code, room); addPlayer(room, cl, m.key, m.sk, m.rk); broadcastRoom(room); break;
     }
     case 'join': {
       if (r) leave(cl);
       const room = rooms.get(String(m.code || '').toUpperCase());
       if (!room) { cl.ws.send({t: 'err', msg: '找不到這個房號'}); break; }
       if (room.state !== 'lobby') { cl.ws.send({t: 'err', msg: '這個房間已經開戰了'}); break; }
-      const err = addPlayer(room, cl, m.key); if (err) { cl.ws.send({t: 'err', msg: err}); break; }
+      const err = addPlayer(room, cl, m.key, m.sk, m.rk); if (err) { cl.ws.send({t: 'err', msg: err}); break; }
       broadcastRoom(room); break;
     }
     case 'rejoin': {
@@ -203,7 +210,7 @@ function onMessage(cl, m) {
     case 'pick': {
       if (!r || r.state !== 'lobby' || !CKEYS.includes(m.key)) break;
       if (r.players.some(q => q !== p && q.team === p.team && q.key === m.key)) { cl.ws.send({t: 'err', msg: `同隊已經有人選了${NAME[m.key]}`}); break; }
-      p.key = m.key; broadcastRoom(r); break;
+      p.key = m.key; if (m.sk) p.sk = cleanSk(m.sk); broadcastRoom(r); break;
     }
     case 'start': {
       if (!r || r.state !== 'lobby') break;

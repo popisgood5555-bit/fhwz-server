@@ -1070,7 +1070,7 @@ Object.assign(UNITS, {
 const FUNITS = [['templar', 'longbow'], ['revenant', 'necro']], MERCS = ['dwarf', 'berserk', 'xbow'];
 const ALLU = UKEYS.concat(FUNITS[0], FUNITS[1]);
 const facOf = c => { const f = CMDS[typeof c === 'string' ? c : c.key].fac; return f === '聖輝王國' ? 0 : f === '黑曜帝國' ? 1 : -1; };
-const unitsFor = c => UKEYS.concat(facOf(c) >= 0 ? FUNITS[facOf(c)] : []);
+const unitsFor = c => UKEYS.concat(facOf(c) >= 0 ? FUNITS[facOf(c)] : []).filter(u => unitOk(u));
 const isComp = e => e.utype === 'wolf' || !!e.comp;
 const STRONG = {pike:['cav'], shield:['archer','scout'], cav:['archer','mage','siege'], archer:['pike','griffin'], mage:['shield','pike'],
   scout:['mage','siege','priest'], griffin:['siege','scout','priest'], siege:['shield'], priest:['mage'], wolf:[]};
@@ -1491,6 +1491,7 @@ function newGame(playerKey, lineup) {
   CORPSES.length = 0;
   ents = []; zones = []; fx = []; floaters = []; intel[0] = {}; intel[1] = {}; bubble = null;
   G = {time:0, waveT:4, visT:0, hudT:0, mmT:0, ravenT:[60, 60], over:false, muster:30, placing:null, aim:null, mouseT:-9, sel:'all', deploy:false, lastTap:null, tapT:-9, aiming:null, freeCam:null, mslot:0, mpick:[null, null], stats:{kills:0, deaths:0, towers:0, orders:0, skills:0, caps:0, objs:0}, lost:[0, 0], behind:-1, buff:[{}, {}], lastStand:[false, false], coreShield:[0, 0], obj:{titan:{t:240, ent:null}, dragon:{t:240, ent:null}}};
+  G.flv = lineup === 'net' ? RMAX : lineup && lineup.flv ? lineup.flv : myRank();
   if (lineup !== 'net') for (const t of [0,1]) {
     const TW = t ? TW1 : TW0;
     for (const l of LKEYS) TW[l].forEach((p, i) => addEnt({kind:'tow', team:t, lane:l, tier:i+1, x:p[0], z:p[1], r:2.8, hp:1500 + i*300, maxHp:1500 + i*300, rng:14, mesh:mkTower(t, i)}));
@@ -1512,8 +1513,8 @@ function newGame(playerKey, lineup) {
   player = mk(playerKey, 0, 'mid', true);
   const ac2 = [mk(allies[0], 0, 'top'), mk(allies[1], 0, 'bot')];
   const fc = [mk(foes[0], 1, 'top'), mk(foes[1], 1, 'mid'), mk(foes[2], 1, 'bot')];
-  for (const c of ac2) { c.smart = true; if (SET.eliteAlly) c.elite = 1.2; }
-  for (const c of fc) { c.smart = !!SET.hardAI; if (SET.hardAI) c.elite = 1.2; }
+  for (const c of ac2) rankAI(c, true);
+  for (const c of fc) rankAI(c, false);
   for (const c of [...ac2, ...fc]) aiPickUnits(c);
   }
   for (const c of cmds()) skinCmd(c);
@@ -1640,6 +1641,7 @@ function updateInd() {
 }
 function startAim(slot) {
   if (phase !== 'play') return;
+  if (lockedMsg(slot[0] === 'u' ? 'uskill' : slot)) return;
   if (G.aiming && G.aiming.slot === slot) { if (FINE()) cancelAim(); else fireAim(); return; }
   cancelPlace(); cancelOAim(); cancelDemo(); cancelUpg();
   if (slot === 'q' || slot === 'r' || slot === 'e') {
@@ -1694,6 +1696,7 @@ function formWidth(form, n) { let mx = 0; for (let i = 0; i < n; i++) mx = Math.
 function grpKeys(sel) { return sel === 'all' ? [0, 1] : [sel]; }
 function order(c, sel, type, pt, face, silent, target) {
   if (c.respawn > 0) return false;
+  if (!unl('o:' + type)) { if (!pt && target) pt = {x:target.x, z:target.z}; type = pt ? 'move' : 'advance'; target = null; }   // locked orders fall back to a plain move
   const ks = grpKeys(sel).filter(k => c.grp[k].mem.length || type === 'rally' || type === 'retreat');
   if (!ks.length) { if (c === player && !silent) toast('這支隊伍目前沒有士兵', ''); return false; }
   let tgt = target || null;
@@ -1715,6 +1718,7 @@ function order(c, sel, type, pt, face, silent, target) {
   return true;
 }
 function setForm(c, sel, form, silent) {
+  if (!unl('form')) { if (c === player && !silent) lockedMsg('form'); return; }
   for (const k of grpKeys(sel)) c.grp[k].form = form;
   if (c === player && !silent) { say(c, 'form'); tone([392, 523], 'square', 0.25, 0.05, 1800); updateCmdHud(); toast(`${grpLabel(sel)}改為${FORMS[form].n}：${FORMS[form].d}`, 'b'); }
 }
@@ -1726,7 +1730,7 @@ function aimPt() {
 }
 const POS_ORD = new Set(['hold', 'charge', 'focus', 'ambush', 'move']);
 function issue(type) {
-  if (phase !== 'play') return;
+  if (phase !== 'play' || lockedMsg('o:' + type)) return;
   cancelAim(); cancelPlace(); cancelDemo(); cancelUpg();
   if (POS_ORD.has(type)) {
     if (G.oaim && G.oaim.type === type) { cancelOAim(); return; }
@@ -1743,6 +1747,7 @@ function cancelOAim() { if (G && G.oaim) { G.oaim = null; updateAimHud(); } }
 function cancelDemo() { if (G && G.demo) { G.demo = false; updateAimHud(); } }
 function toggleDemo() {
   if (phase !== 'play') return;
+  if (!BKEYS.some(b => unl('b:' + b))) { lockedMsg('b:trench'); return; }
   if (G.demo) { cancelDemo(); return; }
   cancelAim(); cancelOAim(); cancelPlace(); cancelUpg();
   if (!ents.some(e => e.kind === 'bld' && !e.dead && e.owner === player)) { toast('你目前沒有建築可以拆除', 'r'); return; }
@@ -2071,6 +2076,7 @@ function addZone(z) {
   zones.push(z); return z;
 }
 function castSkill(c, slot, p, tgt) {
+  if (slot !== 'q' && !unl(slot)) return false;
   if (c[slot + 'T'] > 0 || c.respawn > 0 || c.stunT > 0) return false;
   if (slot === 'e' && c.lvl < 6) return false;
   const k = c.key, sp = CSK[k][slot];
@@ -2104,6 +2110,7 @@ function castSkill(c, slot, p, tgt) {
   return true;
 }
 function castU(c, k, p) {
+  if (!unl('uskill')) return false;
   const g = c.grp[k];
   if (!g || !g.mem.length || g.skT > 0 || c.respawn > 0) return false;
   const S = USK[g.utype], o = {x:g.cent.x, z:g.cent.z};
@@ -2189,6 +2196,7 @@ function slow(e, f, t) { if (e.kind === 'sol' && UNITS[e.utype].fly && f < 0.7) 
 
 // ================= building =================
 function canPlace(c, type, x, z) {
+  if (!unl('b:' + type)) return `${BUILDS[type].n}在軍階 ${rankNeed('b:' + type)} 解鎖`;
   const Bd = BUILDS[type];
   if (c.gold < bcost(c, type)) return '軍資不足';
   if (c.builds >= 4) return '建築已達上限 4 座';
@@ -2214,6 +2222,7 @@ function place(c, type, x, z) {
   return true;
 }
 function canReform(c, k) {
+  if (!unl('reform')) return `整編在軍階 ${rankNeed('reform')} 解鎖`;
   const g = c.grp[k];
   if (g.reformT > 0) return `第${GNUM[k]}隊整編冷卻中（${Math.ceil(g.reformT)} 秒）`;
   if (c.gold < 150) return '軍資不足（需要 150）';
@@ -2503,9 +2512,9 @@ function aiLane(c, Pl, pr) {
 // ---------- tactical AI (allies; enemies too when 敵方 AI 強化 is on) ----------
 const AIFAV = {valen:['shield','pike'], sylvie:['archer','pike'], orion:['mage','shield'], gru:['cav','griffin'], brand:['siege','shield'], raven:['scout','cav']};
 function aiPickUnits(c) {
-  const U2 = unitsFor(c), ex = facOf(c) >= 0 ? FUNITS[facOf(c)] : [];
+  const U2 = unitsFor(c), ex = (facOf(c) >= 0 ? FUNITS[facOf(c)] : []).filter(unitOk);
   if (!c.smart) { c.grp[0].utype = pick(U2); c.grp[1].utype = Math.random() < 0.3 ? c.grp[0].utype : pick(U2); return; }
-  const f = AIFAV[c.key];
+  const f = AIFAV[c.key].map(u => unitOk(u) ? u : pick(U2));
   if (Math.random() < 0.45) { c.grp[0].utype = f[0]; c.grp[1].utype = Math.random() < 0.4 && ex.length ? pick(ex) : f[1]; return; }
   // keep the favourite, pair it with something that covers its weaknesses
   const a = f[0], weak = ALLU.filter(u => STRONG[u].includes(a));
@@ -2805,11 +2814,12 @@ function update(dt) {
   if (phase === 'muster') {
     G.muster -= dt; const el = $('mcount'); if (el) el.textContent = Math.max(0, Math.ceil(G.muster));
     if (SVR && cmds().every(c => !c.net || c.mpick)) G.muster = Math.min(G.muster, 0);
-    if (G.muster <= 0) { if (SVR) netMusterDone(); else { const a = G.mpick[0] || pick(UKEYS); chooseUnits(a, G.mpick[1] || a); } }
+    if (G.muster <= 0) { if (SVR) netMusterDone(); else { const a = G.mpick[0] || pick(unitsFor(player)); chooseUnits(a, G.mpick[1] || a); } }
     G.visT -= dt; if (G.visT <= 0) { G.visT = 0.2; updateVision(); }
     return;
   }
   if (phase !== 'play') return;
+  if (!G.introDone) { G.introDone = true; if (!SVR) rankIntro(); }
   G.time += dt;
   if (!(G.tut && !G.tut.done)) { G.waveT -= dt; if (G.waveT <= 0) { G.waveT = 26; spawnWave(); } }
   bldTick(); gridBuild(); featTick(dt); if (!SVR) supplyFx(dt);
@@ -2941,7 +2951,7 @@ function updateAllyDragon(d, dt) {
 }
 function strategicTick(dt) {
   for (const t of [0, 1]) { if (G.buff[t].titan > 0) G.buff[t].titan -= dt; if (G.coreShield[t] > 0) G.coreShield[t] -= dt; }
-  for (const key of ['titan', 'dragon']) { const o = G.obj[key]; if (!o.ent && G.time >= o.t) spawnNeutral(key); }
+  for (const key of ['titan', 'dragon']) { const o = G.obj[key]; if (!o.ent && G.time >= o.t && unl('obj')) spawnNeutral(key); }
   for (const t of [0, 1]) {
     const core = ents.find(e => e.kind === 'core' && e.team === t);
     if (core && !core.dead && !core.prot && !G.lastStand[t]) {
@@ -3132,7 +3142,7 @@ function drawMini() {
   if (player) for (const k of [0, 1]) { const g = player.grp[k]; if (g.pt && ['move','hold','charge','ambush'].includes(g.order)) { mctx.strokeStyle = GCOL[k]; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(Pm(g.pt.x), Pm(g.pt.z), 7, 0, 7); mctx.stroke(); } }
   mctx.globalAlpha = 0.5; mctx.drawImage(fogCv, 0, 0, S, S); mctx.globalAlpha = 1;
   if (G && G.sps) for (const s of G.sps) { mctx.fillStyle = s.owner === 0 ? C.blue : s.owner === 1 ? C.red : '#CFC6B2'; const x = Pm(s.x), y = Pm(s.z); mctx.beginPath(); if (s.k === 'granary') mctx.rect(x - 7, y - 7, 14, 14); else { mctx.moveTo(x, y - 9); mctx.lineTo(x + 8, y + 6); mctx.lineTo(x - 8, y + 6); mctx.closePath(); } mctx.fill(); mctx.strokeStyle = '#0F1218'; mctx.lineWidth = 2; mctx.stroke(); }
-  if (G && G.obj) for (const key of ['titan', 'dragon']) { const o = G.obj[key], h = objHome(key); mctx.strokeStyle = C.neutral; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(Pm(h.x), Pm(h.z), 11, 0, 7); mctx.stroke(); if (o.ent) { mctx.fillStyle = C.neutral; mctx.beginPath(); mctx.arc(Pm(h.x), Pm(h.z), 7, 0, 7); mctx.fill(); } }
+  if (G && G.obj && unl('obj')) for (const key of ['titan', 'dragon']) { const o = G.obj[key], h = objHome(key); mctx.strokeStyle = C.neutral; mctx.lineWidth = 3; mctx.beginPath(); mctx.arc(Pm(h.x), Pm(h.z), 11, 0, 7); mctx.stroke(); if (o.ent) { mctx.fillStyle = C.neutral; mctx.beginPath(); mctx.arc(Pm(h.x), Pm(h.z), 7, 0, 7); mctx.fill(); } }
   drawCampsMini(mctx, Pm);
   if (G && G.pingAt && G.time - G.pingAt.t < 6) { const a = (G.time - G.pingAt.t)%1.2/1.2; mctx.strokeStyle = `rgba(240,151,138,${1 - a})`; mctx.lineWidth = 4; mctx.beginPath(); mctx.arc(Pm(G.pingAt.x), Pm(G.pingAt.z), 8 + a*26, 0, 7); mctx.stroke(); }
   const vw = 30*camZ*k, vh = 22*camZ*k; mctx.strokeStyle = 'rgba(236,229,213,.8)'; mctx.lineWidth = 2; mctx.strokeRect(Pm(camT.x) - vw, Pm(camT.z) - vh, vw*2, vh*2);
@@ -3154,20 +3164,20 @@ function buildHud() {
   $('cmd').innerHTML = `<div class="h"><span>指揮台</span><span>1 / 2 / 3 選隊</span></div>
    <div class="sq" id="sq0"></div><div class="sq" id="sq1"></div>
    <button type="button" class="allb" data-g="all">全軍（3）</button>
-   <div class="ords">${ORDERS.map(o => `<button type="button" class="cb" data-o="${o[0]}" aria-label="${o[1]}（${o[2].toUpperCase()}）：${o[3]}" title="${o[3]}">${icon(o[0], 40)}<span>${o[1]}</span><span class="k">${o[2].toUpperCase()}</span></button>`).join('')}</div>
-   <div class="forms">${FKEYS.map(f => `<button type="button" class="cb" data-f="${f}" aria-label="${FORMS[f].n}（${FORMS[f].k}）：${FORMS[f].d}" title="${FORMS[f].d}">${icon(FORMS[f].ic, 36)}<span>${FORMS[f].n}</span><span class="k">${FORMS[f].k}</span></button>`).join('')}</div>
-   <button type="button" class="dep" id="depBtn">${glyph('deploy', 20)}戰術部署<span style="font-weight:400;font-size:12px;opacity:.8">（空白鍵）</span></button>`;
-  $('builds').innerHTML = BKEYS.map(k => `<button type="button" class="bb" data-b="${k}" aria-label="建造${BUILDS[k].n}，${BUILDS[k].cost} 軍資：${BUILDS[k].d}" title="${BUILDS[k].n}：${BUILDS[k].d}">${icon(k, 46)}<span>${BUILDS[k].cost}</span></button>`).join('')
-    + `<button type="button" class="bb" data-act="upgrade" aria-label="升級自己的建築（L）" title="升級（L）：完工的建築可升到二級">${icon('upgrade', 46)}<span>升級</span></button>`
-    + `<button type="button" class="bb" data-act="demolish" aria-label="拆除自己的建築（K）" title="拆除（K）：完工返還 50%、建造中全額退還">${icon('demolish', 46)}<span>拆除</span></button>`;
+   <div class="ords">${ORDERS.filter(o => unl('o:' + o[0])).map(o => `<button type="button" class="cb" data-o="${o[0]}" aria-label="${o[1]}（${o[2].toUpperCase()}）：${o[3]}" title="${o[3]}">${icon(o[0], 40)}<span>${o[1]}</span><span class="k">${o[2].toUpperCase()}</span></button>`).join('')}</div>
+   <div class="forms" ${unl('form') ? '' : 'style="display:none"'}>${FKEYS.map(f => `<button type="button" class="cb" data-f="${f}" aria-label="${FORMS[f].n}（${FORMS[f].k}）：${FORMS[f].d}" title="${FORMS[f].d}">${icon(FORMS[f].ic, 36)}<span>${FORMS[f].n}</span><span class="k">${FORMS[f].k}</span></button>`).join('')}</div>
+   <button type="button" class="dep" id="depBtn" ${unl('deploy') ? '' : 'style="display:none"'}>${glyph('deploy', 20)}戰術部署<span style="font-weight:400;font-size:12px;opacity:.8">（空白鍵）</span></button>`;
+  $('builds').innerHTML = BKEYS.filter(k => unl('b:' + k)).map(k => `<button type="button" class="bb" data-b="${k}" aria-label="建造${BUILDS[k].n}，${BUILDS[k].cost} 軍資：${BUILDS[k].d}" title="${BUILDS[k].n}：${BUILDS[k].d}">${icon(k, 46)}<span>${BUILDS[k].cost}</span></button>`).join('')
+    + (unl('upg') ? '' : '<!--') + `<button type="button" class="bb" data-act="upgrade" aria-label="升級自己的建築（L）" title="升級（L）：完工的建築可升到二級">${icon('upgrade', 46)}<span>升級</span></button>` + (unl('upg') ? '' : '-->')
+    + (BKEYS.some(b => unl('b:' + b)) ? '' : '<!--') + `<button type="button" class="bb" data-act="demolish" aria-label="拆除自己的建築（K）" title="拆除（K）：完工返還 50%、建造中全額退還">${icon('demolish', 46)}<span>拆除</span></button>` + (BKEYS.some(b => unl('b:' + b)) ? '' : '-->');
   const d = CMDS[player.key];
   $('skills').innerHTML = `
    <div class="sk" style="right:0;bottom:4px"><div style="position:relative">${icon(player.key, 92)}<span class="lvb" id="lvB">1</span><svg class="xpr" viewBox="0 0 100 100"><circle cx="50" cy="50" r="47" pathLength="100" id="xpR"></circle></svg></div><span class="lb">統帥</span></div>
-   <button type="button" class="sk lock" id="skE" style="right:176px;bottom:6px" aria-label="${d.e.n}（E）：${d.e.d}" title="${d.e.d}"><div style="position:relative">${icon('e_' + player.key, 60)}<div class="cd" id="cdE"></div><span class="key">E</span></div><span class="lb">${d.e.n}</span></button>
-   <button type="button" class="sk" id="skU" style="right:166px;bottom:92px" aria-label="軍械庫（U）"><div style="position:relative">${icon('armory', 46)}<span class="key">U</span></div><span class="lb">軍械庫</span></button>
+   <button type="button" class="sk lock" id="skE" style="right:176px;bottom:6px;${unl('e') ? '' : 'display:none'}" aria-label="${d.e.n}（E）：${d.e.d}" title="${d.e.d}"><div style="position:relative">${icon('e_' + player.key, 60)}<div class="cd" id="cdE"></div><span class="key">E</span></div><span class="lb">${d.e.n}</span></button>
+   <button type="button" class="sk" id="skU" style="right:166px;bottom:92px;${unl('armory') ? '' : 'display:none'}" aria-label="軍械庫（U）"><div style="position:relative">${icon('armory', 46)}<span class="key">U</span></div><span class="lb">軍械庫</span></button>
    <button type="button" class="sk" id="skQ" style="right:104px;bottom:6px" aria-label="${d.q.n}（Q）：${d.q.d}" title="${d.q.d}"><div style="position:relative">${icon(qIcon(player.key), 60)}<div class="cd" id="cdQ"></div><span class="key">Q</span></div><span class="lb">${d.q.n}</span></button>
-   <button type="button" class="sk" id="skR" style="right:84px;bottom:86px" aria-label="${d.r.n}（R）：${d.r.d}" title="${d.r.d}"><div style="position:relative">${icon(rIcon(player.key), 60)}<div class="cd" id="cdR"></div><span class="key">R</span></div><span class="lb">${d.r.n}</span></button>
-   <button type="button" class="sk" id="skT" style="right:6px;bottom:112px" aria-label="整編（T）"><div style="position:relative">${icon('reform', 46)}<div class="cd" id="cdT"></div><span class="key">T</span></div><span class="lb">整編</span></button>`;
+   <button type="button" class="sk" id="skR" style="right:84px;bottom:86px;${unl('r') ? '' : 'display:none'}" aria-label="${d.r.n}（R）：${d.r.d}" title="${d.r.d}"><div style="position:relative">${icon(rIcon(player.key), 60)}<div class="cd" id="cdR"></div><span class="key">R</span></div><span class="lb">${d.r.n}</span></button>
+   <button type="button" class="sk" id="skT" style="right:6px;bottom:112px;${unl('reform') ? '' : 'display:none'}" aria-label="整編（T）"><div style="position:relative">${icon('reform', 46)}<div class="cd" id="cdT"></div><span class="key">T</span></div><span class="lb">整編</span></button>`;
   $('menuBtn').innerHTML = glyph('menu', 24);
   $('cmd').onclick = e => {
     const sk = e.target.closest('[data-sk]'); if (sk) { startAim('u' + sk.dataset.sk); return; }
@@ -3192,7 +3202,7 @@ function sqCard(k) {
   if (!g.utype) return '';
   const S = USK[g.utype];
   return `<button type="button" class="sqsel ${G.sel === k ? 'on' : ''}" data-g="${k}" aria-label="選擇第${GNUM[k]}隊（${k+1}）">${icon(g.utype, 40)}<span class="nm"><b style="color:${GCOL[k]}">第${GNUM[k]}隊 ${'★'.repeat(g.rank)}${UNITS[g.utype].n} ×${g.mem.length}</b><span>${ONAME[g.order]}・${FORMS[g.form].n}</span><span class="mor"><i id="mor${k}"></i></span></span></button>
-   <button type="button" class="sqsk" data-sk="${k}" aria-label="第${GNUM[k]}隊技能 ${S.n}（${k ? 'G' : 'F'}）：${S.d}" title="${S.n}：${S.d}">${glyph(g.utype, 26, GCOL[k])}<span>${S.n}</span><span class="cd" id="skc${k}" style="display:none"></span><span class="key">${k ? 'G' : 'F'}</span></button>`;
+   <button type="button" class="sqsk" data-sk="${k}" ${unl('uskill') ? '' : 'style="display:none"'} aria-label="第${GNUM[k]}隊技能 ${S.n}（${k ? 'G' : 'F'}）：${S.d}" title="${S.n}：${S.d}">${glyph(g.utype, 26, GCOL[k])}<span>${S.n}</span><span class="cd" id="skc${k}" style="display:none"></span><span class="key">${k ? 'G' : 'F'}</span></button>`;
 }
 function updateCmdHud() {
   if (!player || !G) return;
@@ -3211,7 +3221,7 @@ function updateHud() {
   $('clock').textContent = fmt(G.time);
   const ob = $('objbar'); if (ob) {
     const parts = [];
-    for (const [key, nm] of [['titan', '遠古泰坦'], ['dragon', '深淵巨龍']]) { const o = G.obj[key]; parts.push(`<span class="ob">${glyph(key === 'titan' ? 't3' : 'core', 16, C.neutral)}${nm} ${o.ent ? `<b>出現中 ${Math.round(o.ent.hp/o.ent.maxHp*100)}%</b>` : fmt(Math.max(0, o.t - G.time))}</span>`); }
+    if (unl('obj')) for (const [key, nm] of [['titan', '遠古泰坦'], ['dragon', '深淵巨龍']]) { const o = G.obj[key]; parts.push(`<span class="ob">${glyph(key === 'titan' ? 't3' : 'core', 16, C.neutral)}${nm} ${o.ent ? `<b>出現中 ${Math.round(o.ent.hp/o.ent.maxHp*100)}%</b>` : fmt(Math.max(0, o.t - G.time))}</span>`); }
     for (const t of [0, 1]) if (G.buff[t].titan > 0) parts.push(`<span class="ob ${t ? 'r' : 'b'}">${t ? '敵方' : '我方'}泰坦之力 ${Math.ceil(G.buff[t].titan)}s</span>`);
     const dr = ents.find(e => e.kind === 'drg' && !e.dead); if (dr) parts.push(`<span class="ob ${dr.team ? 'r' : 'b'}">${dr.team ? '敵方' : '我方'}巨龍進軍${LNAME[dr.lane]}</span>`);
     if (G.behind === 0) parts.push('<span class="ob g">逆風加成：軍資+50%・復活加快・塔傷+25%</span>'); else if (G.behind === 1) parts.push('<span class="ob r">敵方逆風加成中</span>');
@@ -3231,7 +3241,7 @@ function updateHud() {
     const mb = $('mor' + k); if (mb) { mb.style.width = Math.round(g.mor) + '%'; mb.style.background = g.mor < 25 ? C.red : g.mor < 50 ? C.gold : GCOL[k]; }
     setCd('skc' + k, g.skT);
   }
-  const tmHtml = cmds().filter(o => o.team === 0).map(o => `<div class="tm ${o.respawn > 0 ? 'dead' : ''}">${icon(o.key, 30)}${glyph(o.grp[0].utype || 'unknown', 18, C.g1)}${glyph(o.grp[1].utype || 'unknown', 18, C.g2)}<span>${CMDS[o.key].n}${o === player ? '（你）' : ''}</span>${o === player ? `<span class="lt me">${LNAME[o.lane]}</span>` : `<button type="button" class="lt" data-tl="${o.id}" title="改派到下一路">${LNAME[o.lane]}</button><button type="button" class="sup ${o.supportUntil > G.time ? 'on' : ''}" data-ts="${o.id}" title="叫這位隊友到你身邊支援 30 秒">${o.supportUntil > G.time ? '支援中 ' + Math.ceil(o.supportUntil - G.time) : '支援'}</button>`}</div>`).join('');
+  const tmHtml = cmds().filter(o => o.team === 0).map(o => `<div class="tm ${o.respawn > 0 ? 'dead' : ''}">${icon(o.key, 30)}${glyph(o.grp[0].utype || 'unknown', 18, C.g1)}${glyph(o.grp[1].utype || 'unknown', 18, C.g2)}<span>${CMDS[o.key].n}${o === player ? '（你）' : ''}</span>${o === player || !unl('team') ? `<span class="lt ${o === player ? 'me' : ''}">${LNAME[o.lane]}</span>` : `<button type="button" class="lt" data-tl="${o.id}" title="改派到下一路">${LNAME[o.lane]}</button><button type="button" class="sup ${o.supportUntil > G.time ? 'on' : ''}" data-ts="${o.id}" title="叫這位隊友到你身邊支援 30 秒">${o.supportUntil > G.time ? '支援中 ' + Math.ceil(o.supportUntil - G.time) : '支援'}</button>`}</div>`).join('');
   if ($('team').dataset.h !== tmHtml) { $('team').innerHTML = tmHtml; $('team').dataset.h = tmHtml; }
   $('intel').innerHTML = `<h3>敵方情報 ${glyph('spyglass', 18, C.gold)}</h3>` + cmds().filter(o => o.team === 1).map(o => {
     const rows = [0, 1].map(k => { const I = intel[0][ik(o, k)] || {st:0}; const g = I.st === 2 ? glyph(I.type, 18, C.red) : glyph('unknown', 18, C.muted); const s = I.st === 2 ? `<span class="ok">${UNITS[I.type].n}</span>` : I.st === 1 ? `<span class="st">推測${I.hint}</span>` : '<span class="st">未知</span>'; return `<div style="display:flex;align-items:center;gap:4px">${g}<span style="color:${C.muted}">${GNUM[k]}</span>${s}</div>`; }).join('');
@@ -3239,7 +3249,7 @@ function updateHud() {
   }).join('');
 }
 function toggleDeploy() {
-  if (phase !== 'play') return;
+  if (phase !== 'play' || lockedMsg('deploy')) return;
   G.deploy = !G.deploy;
   $('deplab').classList.toggle('hidden', !G.deploy); $('vign').classList.toggle('hidden', !G.deploy);
   if (G.deploy) tone([220, 330], 'triangle', 0.35, 0.06);
@@ -3376,6 +3386,7 @@ mm.addEventListener('pointerdown', e => {
   setFreeCam(p);
 });
 function startPlace(type) {
+  if (lockedMsg('b:' + type)) return;
   if (phase !== 'play') return;
   cancelAim(); cancelOAim(); cancelDemo(); cancelUpg();
   if (G.placing === type) { cancelPlace(); return; }
@@ -3414,18 +3425,19 @@ function showLobby() {
 function drawLobbyPanel() {
   const P2 = $('lpanel'), cap = $('lcap');
   if (ltab === 'play' || ltab === 'cmd') {
+    if (ltab === 'play' && !unlMe('cmd:' + lsel.cmd)) lsel.cmd = CKEYS.find(c => unlMe('cmd:' + c));
     const k = lsel.cmd, d = CMDS[k];
     showModel('cmd', k);
     cap.innerHTML = `<div class="t">${d.t}・${d.fac}</div><div class="n">${d.n}</div><div class="hint">拖曳旋轉模型</div>`;
-    const grid = `<div class="pick">${CKEYS.map(c => `<button type="button" class="pk ${c === k ? 'on' : ''}" data-c="${c}">${icon(c, 46)}<span>${CMDS[c].n}</span></button>`).join('')}</div>`;
+    const grid = `<div class="pick">${CKEYS.map(c => `<button type="button" class="pk ${c === k ? 'on' : ''} ${unlMe('cmd:' + c) ? '' : 'lockd'}" data-c="${c}">${icon(c, 46)}<span>${CMDS[c].n}</span>${unlMe('cmd:' + c) ? '' : `<small class="lk">軍階 ${rankNeed('cmd:' + c)}</small>`}</button>`).join('')}</div>`;
     if (ltab === 'play') {
-      P2.innerHTML = `<div><div class="kick">出征準備・3 對 3</div><h2>選擇你的指揮官</h2></div>${grid}
+      P2.innerHTML = `${rankBar()}<div><div class="kick">出征準備・3 對 3</div><h2>選擇你的指揮官</h2></div>${grid}
        <div class="roster"><div class="side"><span class="h" style="color:var(--blue)">聖輝聯軍（我方）</span><div class="slot">${icon(k, 30, 0)}<span>${d.n}（你）</span></div><div class="slot">${icon('unknown', 30)}<span style="color:var(--muted)">AI 隊友</span></div><div class="slot">${icon('unknown', 30)}<span style="color:var(--muted)">AI 隊友</span></div></div>
        <div class="side"><span class="h" style="color:var(--red)">黑曜大軍（敵方）</span>${('<div class="slot">' + icon('unknown', 30, 1) + '<span style="color:var(--muted)">開戰後揭曉</span></div>').repeat(3)}</div></div>
        <div class="dl"><div><b>規則</b><span>進場後為兩支隊伍各選一種兵種（可相同），推倒三路防禦塔，摧毀敵方主塔獲勝。指揮官不親自攻擊，靠部隊、技能與佈局取勝。</span></div><div><b>戰略</b><span>側擊與背擊、士氣潰散、老兵晉升、搶奪糧倉與烽火台、草叢埋伏、討伐泰坦與巨龍。</span></div><div><b>翻盤</b><span>落後方獲得逆風加成；擊殺連勝者領懸賞；主塔告急時王城衛隊出陣。</span></div></div>
-       <div class="bar"><button type="button" class="go" id="goBtn">${glyph('advance', 22, '#1A1408')}以 ${d.n} 出征</button><button type="button" class="go alt" id="tutBtn">${glyph('spyglass', 20)}新手教學</button><button type="button" class="go alt" id="netBtn">${glyph('banner', 20)}線上對戰</button></div>${tutSeen() ? '' : '<p style="color:var(--gold)">第一次玩？建議先完成新手教學（約 3 分鐘，敵軍會等你）。</p>'}`;
+       <div class="bar"><button type="button" class="go" id="goBtn">${glyph('advance', 22, '#1A1408')}以 ${d.n} 出征</button><button type="button" class="go alt" id="tutBtn">${glyph('spyglass', 20)}新手教學</button><button type="button" class="go alt ${unlMe('online') ? '' : 'lockd'}" id="netBtn">${glyph('banner', 20)}線上對戰${unlMe('online') ? '' : `（軍階 ${rankNeed('online')}）`}</button></div>${tutSeen() ? '' : '<p style="color:var(--gold)">第一次玩？建議先完成新手教學（約 3 分鐘，敵軍會等你）。</p>'}`;
       $('goBtn').onclick = () => { ac(); drum(); lobbySay(k, 'start'); try { localStorage.setItem('fhwz-cmd', k); } catch (e) {} startWhenArt(() => newGame(k)); };
-      $('netBtn').onclick = () => { ac(); openNetLobby(); };
+      $('netBtn').onclick = () => { ac(); if (!unlMe('online')) { toast(`線上對戰在軍階 ${rankNeed('online')}「${RANKS[rankNeed('online') - 1].n}」開放：先打幾場單人對戰熟悉操作`, 'r'); return; } openNetLobby(); };
       $('tutBtn').onclick = () => { ac(); drum(); try { localStorage.setItem('fhwz-cmd', k); } catch (e) {} startWhenArt(() => startTutorial(k)); };
     } else {
       const v = voiceFor(k);
@@ -3437,14 +3449,14 @@ function drawLobbyPanel() {
       $('vo1').onclick = () => lobbySay(k, 'select'); $('vo2').onclick = () => lobbySay(k, 'charge'); $('vo3').onclick = () => lobbySay(k, 'r'); $('vo4').onclick = () => lobbySay(k, 'kill');
       const vs = $('vsel'); if (vs) vs.onchange = () => { SET.vmap[k] = vs.value; saveSet(); lobbySay(k, 'select'); };
     }
-    P2.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { lsel.cmd = b.dataset.c; drawLobbyPanel(); lobbySay(lsel.cmd, 'select'); });
+    P2.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (ltab === 'play' && !unlMe('cmd:' + b.dataset.c)) { toast(`${CMDS[b.dataset.c].n}在軍階 ${rankNeed('cmd:' + b.dataset.c)}「${RANKS[rankNeed('cmd:' + b.dataset.c) - 1].n}」解鎖；可以先到「指揮官」頁看介紹`, 'r'); return; } lsel.cmd = b.dataset.c; drawLobbyPanel(); lobbySay(lsel.cmd, 'select'); });
   } else if (ltab === 'shop') { drawShop(P2, cap);
   } else if (ltab === 'unit') {
     const u = lsel.unit, U = UNITS[u], S = USK[u];
     showModel('unit', u);
     cap.innerHTML = `<div class="t">${U.cls}・每隊 ${U.sq} 人</div><div class="n">${U.n}</div><div class="hint">拖曳旋轉模型</div>`;
-    const pk = L => `<div class="pick">${L.map(v => `<button type="button" class="pk ${v === u ? 'on' : ''}" data-u="${v}">${icon(v, 44)}<span>${UNITS[v].n}</span></button>`).join('')}</div>`;
-    P2.innerHTML = `<div><div class="kick">兵種圖鑑・共用 9 種＋兩國專屬各 2 種＋傭兵 3 種</div><h2>${U.n}${U.fac === 0 ? '<small style="color:var(--blue)">　聖輝王國專屬</small>' : U.fac === 1 ? '<small style="color:var(--red)">　黑曜帝國專屬</small>' : U.merc ? '<small style="color:var(--gold)">　傭兵</small>' : ''}</h2></div>
+    const pk = L => `<div class="pick">${L.map(v => `<button type="button" class="pk ${v === u ? 'on' : ''} ${unlMe('unit:' + v) ? '' : 'lockd'}" data-u="${v}">${icon(v, 44)}<span>${UNITS[v].n}</span>${unlMe('unit:' + v) ? '' : `<small class="lk">軍階 ${rankNeed('unit:' + v)}</small>`}</button>`).join('')}</div>`;
+    P2.innerHTML = `<div><div class="kick">兵種圖鑑・共用 9 種＋兩國專屬各 2 種＋傭兵 3 種</div>${unlMe('unit:' + u) ? '' : `<div class="lockn">軍階 ${rankNeed('unit:' + u)}「${RANKS[rankNeed('unit:' + u) - 1].n}」解鎖</div>`}<h2>${U.n}${U.fac === 0 ? '<small style="color:var(--blue)">　聖輝王國專屬</small>' : U.fac === 1 ? '<small style="color:var(--red)">　黑曜帝國專屬</small>' : U.merc ? '<small style="color:var(--gold)">　傭兵</small>' : ''}</h2></div>
      ${pk(UKEYS)}<div class="kick">聖輝王國專屬（瓦倫、希爾薇）</div>${pk(FUNITS[0])}<div class="kick">黑曜帝國專屬（歐瑞恩、格魯、布蘭德）</div>${pk(FUNITS[1])}<div class="kick">傭兵（野區傭兵營地僱用）</div>${pk(MERCS)}
      <div class="dl"><div><b>特性</b><span>${U.trait}</span></div>${S ? `<div><b>技能</b><span><strong>${S.n}</strong>　${S.d}（冷卻 ${S.cd} 秒・${S.t === 'line' ? '直線' : S.t === 'dir' ? '扇形朝向' : '圓形範圍'}）</span></div>` : `<div><b>僱用</b><span>${U.cost} 軍資・6 名・跟隨指定小隊作戰 120 秒，不佔編制</span></div>`}<div><b>預設陣形</b><span>${FORMS[U.form].n}：${FORMS[U.form].d}</span></div><div><b>數值</b><span>生命 ${U.hp}・攻擊 ${U.atk}・射程 ${U.rng}・移速 ${U.spd}</span></div></div>${chipsFor(u)}
      <p>克制方造成 1.5 倍傷害，被克時只造成 0.75 倍。兩支隊伍可選不同兵種，也可以相同。</p>`;
@@ -3462,14 +3474,15 @@ function drawLobbyPanel() {
     showModel('core', null);
     cap.innerHTML = `<div class="t">聖輝王國</div><div class="n">主塔</div>`;
     const tg = (k, t, s) => `<button type="button" class="tg" data-s="${k}" aria-pressed="${!!SET[k]}"><span><strong>${t}</strong><small>${s}</small></span><span class="sw"></span></button>`;
-    P2.innerHTML = `<div><div class="kick">設定</div><h2>遊戲設定</h2></div>${setToggles(tg)}<p>語音使用你裝置上的中文語音；若沒有中文語音，台詞仍會以字幕與專屬聲效呈現。</p>`;
+    P2.innerHTML = `<div><div class="kick">設定</div><h2>遊戲設定</h2></div>${setToggles(tg)}
+      <button type="button" class="tg" id="vetTg" aria-pressed="${!!PROF.vet}"><span><strong>老手模式：直接開放全部功能</strong><small>跳過軍階逐步解鎖，所有指令、兵種、建築與系統一次開放，AI 對手也用最高強度。軍階經驗照常累積，可隨時關閉</small></span><span class="sw"></span></button>
+      <p>AI 隊友與對手的強度會跟著你的指揮官軍階調整。語音使用你裝置上的中文語音；若沒有中文語音，台詞仍會以字幕與專屬聲效呈現。</p>`;
     bindToggles(P2, () => drawLobbyPanel());
+    $('vetTg').onclick = () => { PROFR().vet = !PROF.vet; saveProf(); toast(PROF.vet ? '已開放全部功能' : `回到軍階 ${myRank()}「${RANKS[myRank() - 1].n}」的功能`, 'b'); drawLobbyPanel(); };
   }
 }
 function setToggles(tg) {
   return tg('bloom', '光暈特效', '水晶、火焰與法術的發光效果（關閉可提升效能）')
-    + tg('eliteAlly', '精銳隊友', 'AI 隊友的部隊生命與傷害 +20%；下一場生效')
-    + tg('hardAI', '敵方 AI 強化', '敵方改用戰術 AI，部隊生命與傷害 +20%；下一場生效')
     + tg('quick', '快速施放', '按下技能鍵立刻施放在游標處，不顯示瞄準（需滑鼠）')
     + tg('voice', '指揮官語音', '下令與施放技能時朗讀台詞，每位指揮官聲線不同')
     + tg('sfx', '號角與聲效', '下令號角、角色專屬聲效、建築完成提示')
@@ -3490,6 +3503,7 @@ function unitCard(u, sel, note) {
 }
 function allyCmd(e, attr) { const b = e.target.closest('[' + attr + ']'); return b ? cmds().find(o => o.id === +b.getAttribute(attr)) : null; }
 function teamPanelDown(e) {
+  if (!unl('team')) return;
   if (phase !== 'play') return;
   let c = allyCmd(e, 'data-ts');
   if (c) { e.preventDefault(); if (c.supportUntil > G.time) { c.supportUntil = 0; toast(`${CMDS[c.key].n}回到${LNAME[c.lane]}`, 'b'); } else if (c.respawn > 0) toast(`${CMDS[c.key].n}陣亡中，無法支援`, 'r'); else { c.supportUntil = G.time + 30; toast(`${CMDS[c.key].n}趕來支援你（30 秒）`, 'g'); } updateHud(); return; }
@@ -3512,7 +3526,7 @@ function showMuster() {
      <div style="text-align:center"><div class="count" id="mcount">30</div><div class="sub" style="color:var(--muted);font-size:12px">秒後自動決定</div></div></div>
      <h2>分路・決定每位指揮官主攻哪一路</h2>
      <p class="sub" style="color:var(--muted);margin:-4px 0 8px">開戰後仍可以互相支援：點左上隊友的「支援」叫他來你身邊，或點他的分路標籤改派。</p>
-     <div class="lanes">${laneRows()}</div>${laneWarn()}
+     ${unl('team') ? `<div class="lanes">${laneRows()}</div>${laneWarn()}` : ''}
      <div class="slots2">${slot(0)}${slot(1)}</div>
      <h2>正在選擇：第 ${GNUM[ms]} 隊</h2>
      <div class="grid">${unitsFor(player).map(u => unitCard(u, u === mp[ms], mp[1 - ms] === u ? '另一隊也選了' : '')).join('')}</div>
@@ -3537,7 +3551,7 @@ function chooseUnits(u0, u1) {
   updateHud(); updateCmdHud();
 }
 function openReform() {
-  if (phase !== 'play') return;
+  if (phase !== 'play' || lockedMsg('reform')) return;
   cancelAim();
   let k = G.sel === 'all' ? 0 : G.sel, sel = null;
   const draw = () => {
@@ -3670,7 +3684,7 @@ function levelUp(c) {
   c.maxHp = nm;
   if (c.team === 0 || (c.vis && c.vis[0])) { floaters.push({x:c.x, y:5.8, z:c.z, s:`Lv ${c.lvl}`, c:C.gold, t:1.6}); if (c.respawn <= 0) { fxRing(c.x, c.z, 4.5, C.gold, 0.8); sparks(c.x, 1.5, c.z, '#F1D29A', 18, 6, -4); } }
   if (c === player) {
-    if (c.lvl === 6) { toast(`升到 6 級：解鎖第三技能「${CMDS[c.key].e.n}」（E）`, 'g'); say(c, 'r', true); }
+    if (c.lvl === 6 && unl('e')) { toast(`升到 6 級：解鎖第三技能「${CMDS[c.key].e.n}」（E）`, 'g'); say(c, 'r', true); }
     else toast(`指揮官升到 ${c.lvl} 級：技能傷害 +${Math.round((skPow(c) - 1)*100)}%（對士兵減半）、Q／R 冷卻 -${(c.lvl - 1)*3}%、生命 +${(c.lvl - 1)*6}%`, 'b');
     chime();
   }
@@ -3750,6 +3764,7 @@ const armMul = (c, u, k) => 1 + ARM_STEP*armLv(c, u, k);
 function armorUp(c, type, s) { const m = armMul(c, type, 'a')*((type === 'shield' || type === 'templar') && hasTal(c, 'v_p2') ? 1.2 : 1); if (m !== 1) { s.hp *= m; s.maxHp *= m; } return s; }
 const atBase = c => c.respawn > 0 || Math.hypot(c.x - CORE[c.team].x, c.z - CORE[c.team].z) < 30 || Math.hypot(c.x - SPAWN[c.team].x, c.z - SPAWN[c.team].z) < 16;
 function buyArm(c, u, k) {
+  if (!unl('armory')) return `軍械庫在軍階 ${rankNeed('armory')} 解鎖`;
   const lv = armLv(c, u, k);
   if (lv >= 3) return '已達最高等級';
   if (!atBase(c)) return '回到主堡範圍內（或陣亡等待復活時）才能購買';
@@ -3762,6 +3777,7 @@ function buyArm(c, u, k) {
 function openArmory() {
   if (!G) return;
   if (phase === 'pause' && G.armOpen) { closeModal(); phase = 'play'; G.armOpen = false; return; }
+  if (lockedMsg('armory')) return;
   if (phase !== 'play') return;
   cancelAim(); cancelOAim(); cancelPlace(); cancelDemo(); cancelUpg();
   if (G.tut) G.tut.arm = true;
@@ -3788,6 +3804,7 @@ function openArmory() {
   phase = 'pause'; G.armOpen = true; modal.classList.add('show'); draw();
 }
 function aiArmory(c) {
+  if (!unl('armory')) return;
   if (!atBase(c) || c.gold < 500) return;
   const opts = [];
   for (const k of [0, 1]) { const u = c.grp[k].utype; if (!u) continue; for (const s of ['w', 'a']) { const lv = armLv(c, u, s); if (lv < 3) opts.push({u, s, cost:ARM_COST[lv]}); } }
@@ -4050,6 +4067,7 @@ const TSTEPS = [
 ];
 function startTutorial(k) {
   newGame(k);
+  G.flv = RMAX; buildHud();
   chooseUnits('pike', 'archer');
   G.tut = {i:-1, t:0, done:false};
   tutGo(0);
@@ -4086,7 +4104,7 @@ function showResults(win) {
   const row = c => `<tr class="${c === player ? 'me' : ''}"><td>${icon(c.key, 26, c.team)} ${CMDS[c.key].n}${c === player ? '（你）' : ''}${c === mvp ? '<span class="mvp">MVP</span>' : ''}</td><td>${c.lvl}</td><td>${c.st.kills}／${c.st.deaths}</td><td>${c.st.solK}</td><td>${c.st.solL}</td><td>${c.st.towers}</td><td>${Math.round(c.st.dmg/100)/10}k</td><td>${Math.round(c.gold + c.spent)}</td></tr>`;
   const head = `<tr><th>指揮官</th><th>等級</th><th>擊殺／陣亡</th><th>殲敵士兵</th><th>折損士兵</th><th>推塔</th><th>傷害</th><th>總軍資</th></tr>`;
   const tot = t => { const L = cs.filter(c => c.team === t); return {k:L.reduce((s, c) => s + c.st.kills, 0), l:L.reduce((s, c) => s + c.st.solL, 0), g:Math.round(teamEarn(t))}; };
-  const RR = repReward(win, mvp === player);
+  const RR = repReward(win, mvp === player), RK = rankReward(win, mvp === player);
   const T0 = tot(0), T1 = tot(1), why = mvp ? [mvp.st.kills ? `擊殺 ${mvp.st.kills}` : '', mvp.st.towers ? `推塔 ${mvp.st.towers}` : '', `殲敵士兵 ${mvp.st.solK}`, `傷害 ${Math.round(mvp.st.dmg/100)/10}k`].filter(Boolean).join('・') : '';
   modal.innerHTML = `<div class="sheet" style="margin-top:4vh"><div class="bar" style="align-items:flex-end"><div style="display:flex;flex-direction:column;gap:6px;flex:1"><span class="kick">${fmt(G.time)}・戰役結束</span>
      <h1 style="color:${win ? C.gold : C.red};margin:0">${win ? '勝利：敵方主塔已陷落' : '敗北：我方主塔失守'}</h1></div>
@@ -4095,7 +4113,7 @@ function showResults(win) {
        <h3 style="color:${C.red};margin-top:12px">黑曜大軍・擊殺 ${T1.k}・折損士兵 ${T1.l}・推倒敵塔 ${G.lost[0]}</h3><table>${head}${cs.filter(c => c.team === 1).map(row).join('')}</table></div>
      <div class="card"><h3>經濟曲線（累計軍資）</h3><canvas id="ecoC" width="520" height="230" style="width:100%;height:auto"></canvas>
        <div class="keys" style="margin-top:8px"><div><kbd>${G.stats.orders}</kbd><span>下達指令</span></div><div><kbd>${G.stats.skills}</kbd><span>施放技能</span></div><div><kbd>${G.stats.caps}</kbd><span>佔領據點</span></div><div><kbd>${G.stats.objs}</kbd><span>中立目標</span></div></div></div></div>
-     ${repHtml(RR)}
+     ${rankHtml(RK)}${repHtml(RR)}
      <div class="bar"><button type="button" class="go" id="againQ">${glyph('advance', 20, '#1A1408')}再來一場（${CMDS[player.key].n}）</button><button type="button" class="go alt" id="again">換指揮官（回大廳）</button></div></div>`;
   modal.classList.add('show');
   const key = player.key;
@@ -4160,6 +4178,7 @@ function applyTal(c, tier, i) {
   if (c === player) { toast(`天賦「${T[1]}」：${T[2]}`, 'g'); chime(); updateHud(); }
 }
 function talentCheck(c) {
+  if (!unl('talent')) return;
   const tier = TAL_LV.indexOf(c.lvl); if (tier < 0 || (c.tal && c.tal[tier])) return;
   if (c.net) { (c.talQ = c.talQ || []).push(tier); return; }
   if (c !== player) { applyTal(c, tier, Math.random() < 0.5 ? 0 : 1); return; }
@@ -4173,7 +4192,7 @@ function showTalent() {
   el.innerHTML = `<div class="th">${glyph('talent', 18, C.gold)} ${TAL_LV[tier]} 級天賦・二選一<small>（按 9／0 或點選，遊戲不暫停）</small></div><div class="tb">${T.map((t, i) => `<button type="button" data-ti="${i}"><b><kbd>${i ? '0' : '9'}</kbd>${t[1]}</b><small>${t[2]}</small></button>`).join('')}</div>`;
   el.querySelectorAll('[data-ti]').forEach(b => b.onclick = () => pickTalent(+b.dataset.ti));
 }
-function pickTalent(i) { if (!G || !G.talQ || !G.talQ.length) return; applyTal(player, G.talQ.shift(), i); showTalent(); }
+function pickTalent(i) { if (!G || !G.talQ || !G.talQ.length || !unl('talent')) return; applyTal(player, G.talQ.shift(), i); showTalent(); }
 function talentHtml(k) {
   return `<div class="dl">${TALENTS[k].map((tier, j) => `<div><b>${TAL_LV[j]} 級天賦</b><span>${tier.map(t => `<strong>${t[1]}</strong>：${t[2]}`).join('<br>或　')}</span></div>`).join('')}</div>`;
 }
@@ -4352,6 +4371,7 @@ function campTick() {
 }
 const heldCampNear = c => { if (!G || !G.camps) return null; for (const k in G.camps) { const cs = G.camps[k]; if (cs.cp.type === 'merc' && cs.owner === c.team && c.respawn <= 0 && (c.x - cs.cp.x)**2 + (c.z - cs.cp.z)**2 < 15*15) return cs; } return null; };
 function aiCampTarget(c) {
+  if (!unl('camps')) return null;
   if (!G.camps || G.time < 50 || squad(c).length < 8 || c.hp/c.maxHp < 0.55) return null;
   if ((c.campCD = (c.campCD || 0) - 0.3) > 0 && !c.campGo) return null;
   let best = null, bd = 40*40;
@@ -4368,6 +4388,7 @@ function aiCampTarget(c) {
 const mercCost = (c, u) => Math.round(UNITS[u].cost*(c.key === 'raven' ? 0.7 : 1));
 const mercDur = c => c.key === 'raven' ? 180 : 120;
 function hireMerc(c, u, gk) {
+  if (!unl('camps')) return `傭兵在軍階 ${rankNeed('camps')} 解鎖`;
   const cs = heldCampNear(c); if (!cs) return '要站在我方佔領的傭兵營地旁才能僱用';
   if (c.mercUntil > G.time) return `目前的傭兵還要服役 ${Math.ceil(c.mercUntil - G.time)} 秒`;
   const cost = mercCost(c, u); if (c.gold < cost) return `軍資不足（需要 ${cost}）`;
@@ -4378,7 +4399,7 @@ function hireMerc(c, u, gk) {
   return null;
 }
 function openMercs() {
-  if (!G || phase !== 'play') return;
+  if (!G || phase !== 'play' || lockedMsg('camps')) return;
   if (!heldCampNear(player)) { toast('要站在我方佔領的傭兵營地旁才能僱用傭兵（先清掉營地守衛）', 'r'); return; }
   cancelAim(); cancelOAim(); cancelPlace(); cancelDemo(); cancelUpg();
   const draw = msg => {
@@ -4395,6 +4416,7 @@ function openMercs() {
 }
 function toggleMercs() { if (G && phase === 'pause' && G.mercOpen) { closeModal(); phase = 'play'; G.mercOpen = false; } else openMercs(); }
 function aiMerc(c) {
+  if (!unl('camps')) return;
   if (c.mercUntil > G.time || c.gold < 380 || !heldCampNear(c)) return;
   const foes = cmds().filter(o => o.team !== c.team).flatMap(o => [o.grp[0].utype, o.grp[1].utype]);
   const u = MERCS.slice().sort((a, b) => foes.filter(f => STRONG[b].includes(f)).length - foes.filter(f => STRONG[a].includes(f)).length)[0];
@@ -4403,14 +4425,14 @@ function aiMerc(c) {
 
 // ---------- per-frame bookkeeping ----------
 function featTick2(dt) {
-  campTick(); undeadTick();
+  if (unl('camps')) campTick(); undeadTick();
   G.tplT = (G.tplT || 0) - dt;
   if (G.tplT <= 0) { G.tplT = 0.25; G.tpl = [[], []]; for (const e of ents) if (e.kind === 'sol' && !e.dead && e.utype === 'templar' && e.team < 2) G.tpl[e.team].push({x:e.x, z:e.z}); }
   G.f2T = (G.f2T || 0) - dt;
   if (G.f2T <= 0) { G.f2T = 1.5; for (const c of cmds()) if (c !== player && !c.net) aiMerc(c); }
   // hire prompt next to a camp we hold
   let b = $('mercBtn');
-  const show = phase === 'play' && heldCampNear(player);
+  const show = phase === 'play' && unl('camps') && heldCampNear(player);
   if (show && !b) { b = document.createElement('button'); b.id = 'mercBtn'; b.type = 'button'; b.onclick = () => openMercs(); $('hudroot').appendChild(b); }
   if (b) { b.style.display = show ? '' : 'none'; if (show) { const txt = player.mercUntil > G.time ? `傭兵服役中・剩 ${Math.ceil(player.mercUntil - G.time)} 秒` : '傭兵營地・按 J 僱用傭兵'; if (b.dataset.t !== txt) { b.dataset.t = txt; b.innerHTML = `${icon('mercs', 26)}<span>${txt}</span>`; } } }
   if (G.talQ && G.talQ.length && !$('talent')) showTalent();
@@ -4473,6 +4495,7 @@ function bldEff(type, l) {
 const bldShort = (type, l) => bldEff(type, l).split(/[，、；]/)[0];
 const bldName = b => (blv(b) > 1 ? '★'.repeat(blv(b) - 1) + UPG[b.type].n : BUILDS[b.type].n);
 function canUpg(c, b) {
+  if (!unl('upg')) return `建築升級在軍階 ${rankNeed('upg')} 解鎖`;
   if (!b || b.dead || b.owner !== c) return '這不是你的建築';
   if (!b.built) return '建築還沒完工';
   if (blv(b) >= BMAX) return `已經是最高等級（${BMAX} 級）`;
@@ -4515,13 +4538,14 @@ function upgVisual(b) {
 }
 function bRing(b) { if (b.rr && BUILDS[b.type].r > 0) b.rr.scale.setScalar(bRad(b)/Math.min(BUILDS[b.type].r, 30)); }
 function toggleUpg() {
-  if (phase !== 'play') return;
+  if (phase !== 'play' || lockedMsg('upg')) return;
   if (G.upg) { cancelUpg(); return; }
   cancelAim(); cancelOAim(); cancelPlace(); cancelDemo();
   if (!ents.some(e => e.kind === 'bld' && !e.dead && e.owner === player && e.built && blv(e) < BMAX)) { toast(`目前沒有可升級的建築（需要已完工、還沒到 ${BMAX} 級）`, 'r'); return; }
   G.upg = true; updateAimHud();
 }
 function aiUpg(c) {
+  if (!unl('upg')) return;
   if (c.gold < 400) return;
   const pref = ['arrowtower', 'trench', 'supply', 'barracks', 'banner', 'obelisk', 'cheval', 'watch', 'trap'];
   const bs = ents.filter(e => e.kind === 'bld' && !e.dead && e.owner === c && e.built && blv(e) < BMAX).sort((a, b) => blv(a) - blv(b) || pref.indexOf(a.type) - pref.indexOf(b.type));
@@ -4615,7 +4639,7 @@ function repReward(win, mvpMe) {
   const online = !!NET.client, L = [];
   L.push([win ? '勝利' : '完成對戰', win ? 100 : 30]);
   if (online) L.push(['線上對戰加成', win ? 50 : 15]);
-  else if (win && SET.hardAI) L.push(['強化敵方 AI', 50]);
+  else if (win && G.flv >= 6) L.push(['高階對手', 50]);
   if (mvpMe) L.push(['本場 MVP', 30]);
   if (win && PROF.fw !== today()) { PROF.fw = today(); L.push(['每日首勝', 100]); }
   const sum = L.reduce((a, b) => a + b[1], 0);
@@ -4745,6 +4769,86 @@ function drawShop(P2, cap) {
   });
 }
 
+// ================= v1.4: commander rank (指揮官軍階) — features unlock step by step =================
+// The player's rank is kept in this browser's profile. Each match runs at a feature level (G.flv): the player's rank in
+// single player, the lowest rank among the humans online. Everything above that level is off for every commander,
+// AI included, and the AI strength on both sides follows the level too.
+const RANKS = [
+  {n:'見習指揮官', xp:0,    foe:0.8, ally:1.1, smart:false, u:['o:advance', 'o:hold', 'o:rally', 'o:retreat', 'o:move', 'q', 'unit:pike', 'unit:shield', 'unit:archer', 'cmd:valen', 'cmd:sylvie', 'cmd:gru']},
+  {n:'百夫長',     xp:100,  foe:0.9, ally:1.1, smart:false, u:['r', 'unit:cav', 'unit:priest', 'team', 'deploy', 'cmd:brand']},
+  {n:'千夫長',     xp:250,  foe:1, ally:1.05, smart:false, u:['uskill', 'form', 'o:charge', 'o:focus', 'b:trench', 'b:arrowtower', 'b:cheval', 'online']},
+  {n:'騎士隊長',   xp:450,  foe:1, ally:1, smart:false, u:['b:supply', 'b:banner', 'b:watch', 'reform', 'unit:mage', 'unit:scout', 'cmd:orion', 'obj']},
+  {n:'軍團長',     xp:750,  foe:1, ally:1, smart:true, u:['e', 'armory', 'unit:griffin', 'unit:siege', 'cmd:raven', 'o:ambush']},
+  {n:'將軍',       xp:1100, foe:1.05, ally:1, smart:true, u:['talent', 'upg', 'b:barracks', 'b:obelisk', 'b:trap']},
+  {n:'大將軍',     xp:1550, foe:1.1, ally:1, smart:true, u:['camps', 'faction']},
+  {n:'元帥',       xp:2100, foe:1.2, ally:1, smart:true, u:[]}
+];
+const RMAX = RANKS.length;
+// what each unlock key means on the rank screen
+const UNLN = {q:'Q 技能', r:'R 技能', e:'6 級大招（E）', uskill:'兵種技能（F／G）', form:'陣形（4–8）', team:'隊友支援與分路', deploy:'戰術部署（空白鍵）',
+  online:'線上對戰', reform:'整編（T）', obj:'中立目標：遠古泰坦、深淵巨龍', armory:'軍械庫（U）', talent:'指揮官天賦', upg:'建築升級（L）', camps:'野區營地與傭兵（J）', faction:'兩國專屬兵種'};
+function unlName(k) {
+  const [a, b] = k.split(':');
+  if (a === 'o') return `指令「${ONAME[b]}」`;
+  if (a === 'unit') return `兵種「${UNITS[b].n}」`;
+  if (a === 'b') return `建築「${BUILDS[b].n}」`;
+  if (a === 'cmd') return `指揮官「${CMDS[b].n}」`;
+  return UNLN[k] || k;
+}
+const RUNL = {};    // unlock key -> rank (1-based)
+RANKS.forEach((R, i) => { for (const k of R.u) RUNL[k] = i + 1; });
+const rankNeed = k => RUNL[k] || (k.startsWith('unit:') && FUNITS.flat().includes(k.slice(5)) ? RUNL.faction : k.startsWith('unit:') && MERCS.includes(k.slice(5)) ? RUNL.camps : 1);
+
+// ---------- the player's rank ----------
+const PROFR = () => { if (typeof PROF.rxp !== 'number') PROF.rxp = 0; return PROF; };
+function myRank() { if (PROFR().vet) return RMAX; let r = 1; for (let i = 0; i < RMAX; i++) if (PROF.rxp >= RANKS[i].xp) r = i + 1; return r; }
+const trueRank = () => { let r = 1; for (let i = 0; i < RMAX; i++) if (PROFR().rxp >= RANKS[i].xp) r = i + 1; return r; };
+// feature level of what is on screen now: the running match, or the player's rank in the lobby
+const flv = () => (G && G.flv) || myRank();
+const unl = k => rankNeed(k) <= flv();
+const unlMe = k => rankNeed(k) <= myRank();
+function lockedMsg(k) { if (unl(k)) return false; toast(`${unlName(k)}在軍階 ${rankNeed(k)}「${RANKS[rankNeed(k) - 1].n}」解鎖`, 'r'); return true; }
+const unitOk = u => unl('unit:' + u);
+
+// ---------- AI strength per level ----------
+function rankAI(c, isAlly) {
+  const R = RANKS[(G.flv || RMAX) - 1];
+  if (isAlly) { c.smart = true; c.elite = R.ally; }
+  else { c.smart = R.smart; c.elite = R.foe; }
+}
+
+// ---------- rank experience after a match ----------
+// 勝 100、敗 50、MVP +20；教學不計
+function rankReward(win, mvpMe) {
+  if (!G || G.rankDone || G.tut || !player) return G && G.rankR || null;
+  G.rankDone = true;
+  const before = trueRank(), gain = (win ? 100 : 50) + (mvpMe ? 20 : 0);
+  PROFR().rxp += gain; saveProf();
+  const after = trueRank(), nu = [];
+  for (let r = before + 1; r <= after; r++) nu.push(...RANKS[r - 1].u);
+  return (G.rankR = {gain, before, after, nu});
+}
+function rankBar() {
+  const r = trueRank(), R = RANKS[r - 1], N = RANKS[r], xp = PROFR().rxp;
+  const pct = N ? Math.round((xp - R.xp)/(N.xp - R.xp)*100) : 100;
+  return `<div class="rankc"><div class="rk">${r}</div><div style="flex:1"><div class="kick">指揮官軍階</div><b>${R.n}</b>${PROF.vet ? '<small>（已解鎖全部功能）</small>' : ''}
+    <div class="rbar"><i style="width:${pct}%"></i></div><small>${N ? `${xp - R.xp}／${N.xp - R.xp}・下一階「${N.n}」解鎖：${N.u.map(unlName).join('、') || 'AI 對手更強'}` : '已達最高軍階'}</small></div></div>`;
+}
+function rankHtml(RR) {
+  if (!RR) return '';
+  const up = RR.after > RR.before;
+  return `<div class="repbox rankup">${glyph('banner', 34, C.gold)}<div style="flex:1"><div class="kick">軍階經驗</div><div class="rv">+${RR.gain}</div>
+    ${up ? `<div class="rl" style="color:var(--gold);font-size:14px">晉升為「${RANKS[RR.after - 1].n}」（軍階 ${RR.after}）！新開放：${RR.nu.map(unlName).join('、') || 'AI 對手更強'}</div>` : `<div class="rl">${rankBar().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 90)}</div>`}</div></div>`;
+}
+// at the start of a match, mention what this rank has just opened
+function rankIntro() {
+  if (!G || G.tut || NET.client) return;
+  const r = myRank(); if (PROF.seenRank === r) return;
+  PROF.seenRank = r; saveProf();
+  if (r === 1) { toast('見習指揮官：先熟悉移動、右鍵派兵和 Q 技能。打完對戰會升階，逐步開放更多功能', 'b'); return; }
+  const nu = RANKS[r - 1].u; if (nu.length) setTimeout(() => toast(`軍階 ${r}「${RANKS[r - 1].n}」新開放：${nu.map(unlName).join('、')}`, 'g'), 1500);
+}
+
 // ================= v1.0: online multiplayer =================
 // One authoritative simulation runs on the Node server (server/server.js loads this same file with globalThis.NETSV set).
 // Browsers send commands, receive ~10 snapshots a second and only render. A client on the red team sees the map
@@ -4752,7 +4856,7 @@ function drawShop(P2, cap) {
 // minimap, "我方/敵方") keeps working unchanged; positions, teams and lanes are mirrored on the way in and out.
 const SVR = globalThis.NETSV || null;
 const NET = {client:false, team:0, mirror:false, ws:null, url:'', name:'', id:null, room:null, you:null, ents:new Map(), zmap:new Map(), lastSend:0, mv:{x:0, z:0}, rpickS:'', snapN:0, hp:new Map()};
-const NET_VER = '1.2.0';      // must match the server's copy of the game
+const NET_VER = '1.3.0';      // must match the server's copy of the game
 const NET_URL_DEFAULT = '';   // build_itch.py can bake the server address in
 const MIRL = {top:'bot', mid:'mid', bot:'top'};
 const CAMPMIR = {wolfB:'wolfR', wolfR:'wolfB', golemB:'golemR', golemR:'golemB', mercN:'mercS', mercS:'mercN'};
@@ -4776,7 +4880,7 @@ if (SVR) {   // the server never draws: skip particle, corpse and model work
   mkCommander = M; mkSoldier = M; mkMinion = M; mkTower = M; mkCore = M; mkBuilding = M; mkDragon = M; mkTitan = M; bake = m => m;
   SVR.api = {netStartServer, netSnap, netFull, netPriv, netCmd, update:dt => update(dt), cmds:() => cmds(), get G() { return G; }, get phase() { return phase; },
     cmdOf:cid => cmds().find(c => c.cid === cid) || null, hurt:(t, d) => hurt(t, d, null), get ents() { return ents; },
-    leave(cid) { const c = cmds().find(o => o.cid === cid); if (!c) return; c.net = false; c.smart = true; c.netMv = null; if (c.talQ) { for (const t of c.talQ) applyTal(c, t, Math.random() < 0.5 ? 0 : 1); c.talQ = []; } if (phase === 'muster' && !c.mpick) c.mpick = AIFAV[c.key]; },
+    leave(cid) { const c = cmds().find(o => o.cid === cid); if (!c) return; c.net = false; c.smart = true; c.netMv = null; if (c.talQ) { for (const t of c.talQ) applyTal(c, t, Math.random() < 0.5 ? 0 : 1); c.talQ = []; } if (phase === 'muster' && !c.mpick) c.mpick = AIFAV[c.key].map(u => unitOk(u) ? u : unitsFor(c)[0]); },
     back(cid) { const c = cmds().find(o => o.cid === cid); if (!c) return null; c.net = true; c.smart = false; c.netMv = null; c.supportUntil = 0; return c; }};
 }
 
@@ -4791,7 +4895,7 @@ function netStartServer(lineup) {
   floaters.push = function (f) { if (f.w === undefined) { f.w = SVR.ctx || (SVR.who && SVR.who.cid) || null; SVR.who = null; } return Array.prototype.push.call(this, f); };
 }
 function netMusterDone() {
-  for (const c of cmds()) if (c.net && !c.grp[0].utype) { const a = c.mpick && c.mpick[0] || AIFAV[c.key][0]; c.grp[0].utype = a; c.grp[1].utype = c.mpick && c.mpick[1] || a; }
+  for (const c of cmds()) if (c.net && !c.grp[0].utype) { const fav = AIFAV[c.key].map(u => unitOk(u) ? u : unitsFor(c)[0]), a = c.mpick && c.mpick[0] || fav[0]; c.grp[0].utype = a; c.grp[1].utype = c.mpick && c.mpick[1] || a; }
   for (const c of cmds()) { spawnSquad(c, 0); spawnSquad(c, 1); }
   phase = 'play'; G.waveT = 3; groupFrame(0);
 }
@@ -5115,7 +5219,7 @@ function netWrap() {
   };
   teamPanelDown = e => {
     if (!NET.client) return o.teamPanelDown(e);
-    if (phase !== 'play') return;
+    if (phase !== 'play' || !unl('team')) return;
     let c = allyCmd(e, 'data-ts'); if (c) { e.preventDefault(); if (c.human) { toast('真人隊友不會聽從支援請求', ''); return; } netCmdSend({t:'support', c:c.id}); toast(c.supportUntil > G.time ? `${CMDS[c.key].n}回到${LNAME[c.lane]}` : `${CMDS[c.key].n}前來支援 30 秒`, 'b'); return; }
     c = allyCmd(e, 'data-tl'); if (c) { e.preventDefault(); if (c.human && c !== player) { toast('真人隊友的分路由他自己決定', ''); return; } const l = LKEYS[(LKEYS.indexOf(c.lane) + 1) % 3]; netCmdSend({t:'lane', c:c.id, l:NET.mirror ? MIRL[l] : l}); c.lane = l; toast(`${CMDS[c.key].n}改派${LNAME[l]}`, 'b'); updateHud(); }
   };
@@ -5158,9 +5262,9 @@ function openNetLobby() {
     <p id="netMsg" style="color:var(--muted);font-size:13px">房主建立房間後，把房號告訴朋友。伺服器網址只需要設定一次。</p><div id="netRoom"></div></div>`;
   document.body.appendChild(box);
   const go = act => { if (!/^wss?:\/\/./.test($('netUrl').value.trim())) { netErr('請先填伺服器網址（wss:// 開頭，部署伺服器後取得）'); return; } NET.name = ($('netName').value || '指揮官').slice(0, 12); try { localStorage.setItem('fhwz-net-name', NET.name); } catch (e) {} const u = $('netUrl').value.trim(); $('netMsg').textContent = '連線中…'; $('netMsg').style.color = 'var(--muted)'; netConnect(u, act); };
-  $('netCreate').onclick = () => go(() => netSend({t:'create', key:lsel.cmd, sk:mySkins(lsel.cmd)}));
+  $('netCreate').onclick = () => go(() => netSend({t:'create', key:lsel.cmd, sk:mySkins(lsel.cmd), rk:myRank()}));
   if (rj) $('netRe').onclick = () => go(() => netSend({t:'rejoin', code:rj.code, tok:rj.tok}));
-  $('netJoin').onclick = () => { const code = $('netCode').value.trim().toUpperCase(); if (code.length !== 5) { netErr('房號是 5 碼'); return; } go(() => netSend({t:'join', code, key:lsel.cmd, sk:mySkins(lsel.cmd)})); };
+  $('netJoin').onclick = () => { const code = $('netCode').value.trim().toUpperCase(); if (code.length !== 5) { netErr('房號是 5 碼'); return; } go(() => netSend({t:'join', code, key:lsel.cmd, sk:mySkins(lsel.cmd), rk:myRank()})); };
   $('netClose').onclick = () => closeNetLobby();
 }
 function closeNetLobby() { const b = $('netBox'); if (b) b.remove(); if (NET.ws && !NET.client) { netSend({t:'leave'}); try { NET.ws.close(); } catch (e) {} } NET.room = null; }
@@ -5170,11 +5274,11 @@ function drawNetRoom() {
   $('netMsg').textContent = `房號 ${R.code}・${R.players.length} 位玩家${host ? '・你是房主' : ''}`; $('netMsg').style.color = 'var(--gold)';
   const slot = (team, i) => {
     const p = R.players.find(q => q.team === team && q.slot === i);
-    return `<button type="button" class="ns ${p && p.id === NET.id ? 'me' : ''} ${p && !p.on ? 'off' : ''}" data-team="${team}" data-slot="${i}">${p ? icon(p.key, 40, team) : icon('unknown', 40)}<span><b>${p ? p.name : 'AI'}</b><small>${p ? CMDS[p.key].n : '空位（點擊加入）'}</small></span></button>`;
+    return `<button type="button" class="ns ${p && p.id === NET.id ? 'me' : ''} ${p && !p.on ? 'off' : ''}" data-team="${team}" data-slot="${i}">${p ? icon(p.key, 40, team) : icon('unknown', 40)}<span><b>${p ? p.name : 'AI'}</b><small>${p ? `${CMDS[p.key].n}・軍階 ${p.rk || 1}` : '空位（點擊加入）'}</small></span></button>`;
   };
   const used = new Set(R.players.filter(p => me && p.team === me.team && p.id !== NET.id).map(p => p.key));
   el.innerHTML = `<div class="nteams"><div><h3 style="color:${C.blue}">聖輝聯軍（藍方）</h3>${[0, 1, 2].map(i => slot(0, i)).join('')}</div><div><h3 style="color:${C.red}">黑曜大軍（紅方）</h3>${[0, 1, 2].map(i => slot(1, i)).join('')}</div></div>
-    <div class="kick" style="margin-top:8px">你的指揮官（同隊不可重複）</div><div class="pick">${CKEYS.map(k => `<button type="button" class="pk ${me && me.key === k ? 'on' : ''}" data-k="${k}" ${used.has(k) ? 'disabled' : ''}>${icon(k, 40)}<span>${CMDS[k].n}</span></button>`).join('')}</div>
+    <p style="color:var(--muted);font-size:13px;margin:6px 0">本場功能等級：軍階 ${Math.min(...R.players.map(p => p.rk || 1))}「${RANKS[Math.min(...R.players.map(p => p.rk || 1)) - 1].n}」（以房內最低軍階為準，AI 也照這個等級作戰）</p><div class="kick" style="margin-top:8px">你的指揮官（同隊不可重複）</div><div class="pick">${CKEYS.map(k => `<button type="button" class="pk ${me && me.key === k ? 'on' : ''}" data-k="${k}" ${used.has(k) || !unlMe('cmd:' + k) ? 'disabled' : ''}>${icon(k, 40)}<span>${CMDS[k].n}</span></button>`).join('')}</div>
     <div class="bar">${host ? `<button type="button" class="go" id="netStart">${glyph('advance', 20, '#1A1408')}開始對戰</button>` : '<span style="color:var(--muted)">等待房主開始…</span>'}<span style="color:var(--muted);font-size:12px">兩隊都可以放真人；同隊是合作、分隊就是對戰。空位由 AI 指揮官補上。</span></div>`;
   el.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => netSend({t:'slot', team:+b.dataset.team, slot:+b.dataset.slot}));
   el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => netSend({t:'pick', key:b.dataset.k, sk:mySkins(b.dataset.k)}));
@@ -5186,7 +5290,7 @@ function netClientStart(m) {
   try { localStorage.setItem('fhwz-net-tok', JSON.stringify({code:m.code, tok:m.you.tok, url:NET.url})); } catch (e) {}
   const b = $('netBox'); if (b) b.remove();
   closeModal();
-  startWhenArt(() => { newGame(m.you.key, 'net'); G.net = true; G.muster = m.muster || 30; camT.x = SPAWN[0].x; camT.z = SPAWN[0].z; if (NET.pend) { const q = NET.pend; NET.pend = null; q.forEach(netApplyAny); } });
+  startWhenArt(() => { newGame(m.you.key, 'net'); G.net = true; G.flv = m.flv || RMAX; G.muster = m.muster || 30; camT.x = SPAWN[0].x; camT.z = SPAWN[0].z; if (NET.pend) { const q = NET.pend; NET.pend = null; q.forEach(netApplyAny); } });
 }
 function netOver(m) {
   try { localStorage.removeItem('fhwz-net-tok'); } catch (e) {}
