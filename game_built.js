@@ -1072,7 +1072,7 @@ const ALLU = UKEYS.concat(FUNITS[0], FUNITS[1]);
 const facOf = c => { const f = CMDS[typeof c === 'string' ? c : c.key].fac; return f === '聖輝王國' ? 0 : f === '黑曜帝國' ? 1 : -1; };
 const unitsFor = c => UKEYS.concat(facOf(c) >= 0 ? FUNITS[facOf(c)] : []).filter(u => unitOk(u));
 const isComp = e => e.utype === 'wolf' || !!e.comp;
-const STRONG = {pike:['cav'], shield:['archer','scout'], cav:['archer','mage','siege'], archer:['pike','griffin'], mage:['shield','pike'],
+const STRONG = {pike:['cav','shield'], shield:['archer','scout'], cav:['archer','mage','siege'], archer:['pike','griffin'], mage:['shield','pike'],
   scout:['mage','siege','priest'], griffin:['siege','scout','priest'], siege:['shield'], priest:['mage'], wolf:[]};
 Object.assign(STRONG, {templar:['revenant','necro','scout'], longbow:['shield','templar','cav','pike','dwarf'], revenant:['archer','longbow','siege','xbow'], necro:['pike','shield','templar','dwarf'],
   dwarf:['cav','berserk'], berserk:['archer','mage','necro','longbow'], xbow:['cav','griffin','shield','templar']});
@@ -2227,7 +2227,7 @@ function canReform(c, k) {
   if (g.reformT > 0) return `第${GNUM[k]}隊整編冷卻中（${Math.ceil(g.reformT)} 秒）`;
   if (c.gold < 150) return '軍資不足（需要 150）';
   const atBase = Math.hypot(c.x - CORE[c.team].x, c.z - CORE[c.team].z) < 22;
-  if (!atBase && !inAura(c.team, c.x, c.z, 'supply') && !G.sps.some(s => s.owner === c.team && Math.hypot(s.x - c.x, s.z - c.z) < 12)) return '需要在主堡、補給站或我方據點範圍內';
+  if (!atBase && !inAura(c.team, c.x, c.z, 'supply') && !G.sps.some(s => s.owner === c.team && Math.hypot(s.x - c.x, s.z - c.z) < 12)) return `需要在${reformWhere()}範圍內`;
   return null;
 }
 // on respawn both squads are rebuilt for free: same type = topped up and healed, new type = fresh full squad
@@ -2370,7 +2370,7 @@ function groupFrame(dt) {
         { const bn = inAura(c.team, g.cent.x, g.cent.z, 'banner'); if (bn) reg += BV(bn, 'mor'); const sp = inAura(c.team, g.cent.x, g.cent.z, 'supply'); if (sp) reg += BV(sp, 'mor'); } if (G.buff[c.team].titan > 0) reg += 3;
         g.mor = clamp(g.mor + reg*dt, 0, 100);
         if (g.routT > 0) { g.routT -= dt; if (g.routT <= 0) { g.mor = 45; g.order = 'rally'; g.pt = null; if (c === player) updateCmdHud(); } }
-        else if (g.mor < 25) { g.routT = 5; if (isMe(c)) { toast(`第${GNUM[k]}隊士氣崩潰，正在潰散！靠近指揮官或戰旗可穩住軍心`, 'r'); say(c, 'low', true); } else if (c.team === 1 && g.mem.some(s => s.vis[0])) toast(`敵方${CMDS[c.key].n}第${GNUM[k]}隊潰散了！`, 'g'); }
+        else if (g.mor < 25) { g.routT = 5; if (isMe(c)) { toast(`第${GNUM[k]}隊士氣崩潰，正在潰散！靠近指揮官${uj('b:banner', '或戰旗')}可穩住軍心`, 'r'); say(c, 'low', true); } else if (c.team === 1 && g.mem.some(s => s.vis[0])) toast(`敵方${CMDS[c.key].n}第${GNUM[k]}隊潰散了！`, 'g'); }
       }
       if (g.order === 'focus' && (!g.focus || g.focus.dead || !g.focus.vis[c.team])) { g.order = 'hold'; g.pt = {x:g.cent.x, z:g.cent.z}; if (c === player) updateCmdHud(); }
       if (g.pt && (g.order === 'move' || g.order === 'ambush' || g.order === 'charge') && n) {
@@ -2502,10 +2502,14 @@ function aiLane(c, Pl, pr) {
       c.buildT = rnd(30, 50);
       const opp = cmds().find(o => o.team !== c.team && o.lane === c.lane);
       const known = opp ? [0, 1].map(k => intel[c.team][ik(opp, k)]).filter(I => I && I.st === 2).map(I => I.type) : [];
-      let type = pick(BPREF[pick([c.grp[0].utype, c.grp[1].utype])]);
-      if (known.includes('cav')) type = 'cheval'; if (known.includes('griffin')) type = 'arrowtower'; if (known.includes('scout')) type = 'watch';
-      if (c.smart && c.builds >= 4 && c.gold >= BUILDS[type].cost + 60) aiRecycle(c);
-      if (c.gold >= BUILDS[type].cost + 60) { const back = lpoint(Pl, pr.s - 6); place(c, type, back.x + rnd(-5,5), back.z + rnd(-5,5)); }
+      // only buildings this match's rank allows; fall back to any allowed one when the squad's favourites are locked
+      const okB = t => unl('b:' + t) && (t !== 'barracks' || !ents.some(e => e.kind === 'bld' && !e.dead && e.type === 'barracks' && e.team === c.team));
+      let opts = (BPREF[pick([c.grp[0].utype, c.grp[1].utype])] || []).filter(okB);
+      if (!opts.length) opts = BKEYS.filter(okB);
+      let type = opts.length ? pick(opts) : null;
+      if (known.includes('cav') && okB('cheval')) type = 'cheval'; if (known.includes('griffin') && okB('arrowtower')) type = 'arrowtower'; if (known.includes('scout') && okB('watch')) type = 'watch';
+      if (type && c.smart && c.builds >= 4 && c.gold >= BUILDS[type].cost + 60) aiRecycle(c);
+      if (type && c.gold >= BUILDS[type].cost + 60) { const back = lpoint(Pl, pr.s - 6); place(c, type, back.x + rnd(-5,5), back.z + rnd(-5,5)); }
     }
   }
 }
@@ -2652,7 +2656,7 @@ function aiSmart(c, Pl, pr) {
   aiCmdSkills(c);
   if (globalThis.__DBG) { __DBG[tm][ratio < 0.5 || (hpR < 0.4 && ratio < 0.9) ? 'fall' : ratio > 1.15 ? 'press' : 'even']++; }
   if (ratio < 0.5 || (hpR < 0.4 && ratio < 0.9)) {
-    if (tm === player.team && G.time - (c.askT || -99) > 45 && dist(c, player) > 30) { c.askT = G.time; tToast(tm, `${LNAME[c.lane]}的${CMDS[c.key].n}兵力不足，請求支援`, 'r'); G.pingAt = {x:c.x, z:c.z, t:G.time}; }
+    if (unl('team') && tm === player.team && G.time - (c.askT || -99) > 45 && dist(c, player) > 30) { c.askT = G.time; tToast(tm, `${LNAME[c.lane]}的${CMDS[c.key].n}兵力不足，請求支援`, 'r'); G.pingAt = {x:c.x, z:c.z, t:G.time}; }
     // outmatched: fall back to the nearest friendly tower and fight under it
     const tw = ents.filter(e => (e.kind === 'tow' || e.kind === 'core') && !e.dead && e.team === tm).sort((a, b) => Math.hypot(a.x - c.x, a.z - c.z) - Math.hypot(b.x - c.x, b.z - c.z))[0];
     const anchor = tw ? {x:tw.x + (SPAWN[tm].x - tw.x)*0.06, z:tw.z + (SPAWN[tm].z - tw.z)*0.06} : SPAWN[tm];
@@ -2877,7 +2881,7 @@ function updateBehind() {
   const d = G.lost[0] - G.lost[1], prev = G.behind;
   G.behind = d >= 2 ? 0 : d <= -2 ? 1 : -1;
   if (G.behind !== prev) {
-    if (G.behind === 0) toast('逆風加成啟動：我方軍資收入 +50%、復活加快、防禦塔傷害 +25%、中立目標效果延長', 'g');
+    if (G.behind === 0) toast('逆風加成啟動：我方軍資收入 +50%、復活加快、防禦塔傷害 +25%' + uj('obj', '、中立目標效果延長'), 'g');
     else if (G.behind === 1) toast('敵方獲得逆風加成：小心他們的反撲', 'r');
     else toast('雙方戰力拉平，逆風加成解除', '');
   }
@@ -2918,7 +2922,7 @@ function neutralSlain(n) {
   if (team === 0) G.stats.objs++;
   if (n.sub === 'titan') {
     G.buff[team].titan = 90*(G.behind === team ? 1.5 : 1);
-    toast(team === 0 ? `我方擊倒遠古泰坦！泰坦之力 ${Math.round(G.buff[team].titan)} 秒：部隊傷害 +20%、士氣回復加快、建築 -30% 造價` : '敵方擊倒遠古泰坦，獲得泰坦之力', team === 0 ? 'g' : 'r');
+    toast(team === 0 ? `我方擊倒遠古泰坦！泰坦之力 ${Math.round(G.buff[team].titan)} 秒：部隊傷害 +20%、士氣回復加快${anyB() ? '、建築 -30% 造價' : ''}` : '敵方擊倒遠古泰坦，獲得泰坦之力', team === 0 ? 'g' : 'r');
   } else {
     spawnAllyDragon(team);
     toast(team === 0 ? '我方擊倒深淵巨龍！巨龍將沿最脆弱的路線替我們進軍' : '敵方馴服了深淵巨龍，牠正朝我方防線推進！', team === 0 ? 'g' : 'r');
@@ -3094,7 +3098,7 @@ function drawOverlay(dt) {
     for (const k of [0, 1]) {
       const g = player.grp[k]; if (!g.mem.length) continue;
       const pc = toScreen(g.cent.x, 4.5, g.cent.z);
-      const sk = g.skT > 0 ? `・技能 ${Math.ceil(g.skT)}s` : '・技能就緒';
+      const sk = !unl('uskill') ? '' : g.skT > 0 ? `・技能 ${Math.ceil(g.skT)}s` : '・技能就緒';
       if (pc.ok) pill(pc.x, pc.y - 18, `${GNUM[k]}隊 ${'★'.repeat(g.rank)}${UNITS[g.utype].n}・${g.routT > 0 ? '潰散中' : ONAME[g.order]}・士氣 ${Math.round(g.mor)}${sk}`, GCOL[k], (G.sel === 'all' || G.sel === k) ? 'rgba(12,15,20,.92)' : 'rgba(12,15,20,.55)');
     }
   }
@@ -3168,7 +3172,7 @@ function buildHud() {
    <div class="forms" ${unl('form') ? '' : 'style="display:none"'}>${FKEYS.map(f => `<button type="button" class="cb" data-f="${f}" aria-label="${FORMS[f].n}（${FORMS[f].k}）：${FORMS[f].d}" title="${FORMS[f].d}">${icon(FORMS[f].ic, 36)}<span>${FORMS[f].n}</span><span class="k">${FORMS[f].k}</span></button>`).join('')}</div>
    <button type="button" class="dep" id="depBtn" ${unl('deploy') ? '' : 'style="display:none"'}>${glyph('deploy', 20)}戰術部署<span style="font-weight:400;font-size:12px;opacity:.8">（空白鍵）</span></button>`;
   $('builds').innerHTML = BKEYS.filter(k => unl('b:' + k)).map(k => `<button type="button" class="bb" data-b="${k}" aria-label="建造${BUILDS[k].n}，${BUILDS[k].cost} 軍資：${BUILDS[k].d}" title="${BUILDS[k].n}：${BUILDS[k].d}">${icon(k, 46)}<span>${BUILDS[k].cost}</span></button>`).join('')
-    + (unl('upg') ? '' : '<!--') + `<button type="button" class="bb" data-act="upgrade" aria-label="升級自己的建築（L）" title="升級（L）：完工的建築可升到二級">${icon('upgrade', 46)}<span>升級</span></button>` + (unl('upg') ? '' : '-->')
+    + (unl('upg') ? '' : '<!--') + `<button type="button" class="bb" data-act="upgrade" aria-label="升級自己的建築（L）" title="升級（L）：完工的建築可升級，最高 5 級">${icon('upgrade', 46)}<span>升級</span></button>` + (unl('upg') ? '' : '-->')
     + (BKEYS.some(b => unl('b:' + b)) ? '' : '<!--') + `<button type="button" class="bb" data-act="demolish" aria-label="拆除自己的建築（K）" title="拆除（K）：完工返還 50%、建造中全額退還">${icon('demolish', 46)}<span>拆除</span></button>` + (BKEYS.some(b => unl('b:' + b)) ? '' : '-->');
   const d = CMDS[player.key];
   $('skills').innerHTML = `
@@ -3194,14 +3198,14 @@ function buildHud() {
   $('skU').onclick = () => openArmory();
   $('menuBtn').onclick = () => showMenu();
   $('hudroot').classList.remove('hidden');
-  $('tip').textContent = FINE() ? '右鍵：設定小隊位置（拖曳定朝向）・X B N M 後右鍵：駐守／衝鋒／集火／埋伏・左鍵點士兵：選隊・F / G 後右鍵：兵種技能・Esc 選單' : '點隊伍卡片選隊；戰術部署模式下點地面派兵；技能按鈕點一下後點地面施放';
+  $('tip').textContent = hudTip();
   updateCmdHud();
 }
 function sqCard(k) {
   const g = player.grp[k];
   if (!g.utype) return '';
   const S = USK[g.utype];
-  return `<button type="button" class="sqsel ${G.sel === k ? 'on' : ''}" data-g="${k}" aria-label="選擇第${GNUM[k]}隊（${k+1}）">${icon(g.utype, 40)}<span class="nm"><b style="color:${GCOL[k]}">第${GNUM[k]}隊 ${'★'.repeat(g.rank)}${UNITS[g.utype].n} ×${g.mem.length}</b><span>${ONAME[g.order]}・${FORMS[g.form].n}</span><span class="mor"><i id="mor${k}"></i></span></span></button>
+  return `<button type="button" class="sqsel ${G.sel === k ? 'on' : ''}" data-g="${k}" aria-label="選擇第${GNUM[k]}隊（${k+1}）">${icon(g.utype, 40)}<span class="nm"><b style="color:${GCOL[k]}">第${GNUM[k]}隊 ${'★'.repeat(g.rank)}${UNITS[g.utype].n} ×${g.mem.length}</b><span>${ONAME[g.order]}${uj('form', '・' + FORMS[g.form].n)}</span><span class="mor"><i id="mor${k}"></i></span></span></button>
    <button type="button" class="sqsk" data-sk="${k}" ${unl('uskill') ? '' : 'style="display:none"'} aria-label="第${GNUM[k]}隊技能 ${S.n}（${k ? 'G' : 'F'}）：${S.d}" title="${S.n}：${S.d}">${glyph(g.utype, 26, GCOL[k])}<span>${S.n}</span><span class="cd" id="skc${k}" style="display:none"></span><span class="key">${k ? 'G' : 'F'}</span></button>`;
 }
 function updateCmdHud() {
@@ -3229,7 +3233,7 @@ function updateHud() {
     const caps = [0, 1].map(t => G.sps.filter(s => s.owner === t).length); parts.push(`<span class="ob">據點 <b style="color:${C.blue}">${caps[0]}</b> : <b style="color:${C.red}">${caps[1]}</b></span>`);
     ob.innerHTML = parts.join('');
   }
-  $('res').innerHTML = `${glyph('gold', 22, C.gold)}${Math.floor(c.gold)}<small>建築 ${c.builds}/4</small>`;
+  $('res').innerHTML = `${glyph('gold', 22, C.gold)}${Math.floor(c.gold)}${anyB() ? `<small>建築 ${c.builds}/4</small>` : ''}`;
   for (const b of document.querySelectorAll('.bb[data-b]')) { b.classList.toggle('no', c.gold < BUILDS[b.dataset.b].cost); b.classList.toggle('sel', G.placing === b.dataset.b); }
   const setCd = (id, v) => { const el = $(id); if (el) { el.textContent = v > 0 ? Math.ceil(v) : ''; el.style.display = v > 0 ? 'flex' : 'none'; } };
   setCd('cdQ', c.qT); setCd('cdR', c.rT); hudLevel(c, setCd); setCd('cdT', Math.min(c.grp[0].reformT, c.grp[1].reformT));
@@ -3237,7 +3241,7 @@ function updateHud() {
   for (const k of [0, 1]) {
     const card = $('sq' + k); if (!card) continue;
     const b = card.querySelector('b'), g = c.grp[k]; if (b && g.utype) b.textContent = `第${GNUM[k]}隊 ${'★'.repeat(g.rank)}${UNITS[g.utype].n} ×${g.mem.length}`;
-    const sp = card.querySelector('.nm span'); if (sp) sp.textContent = `${g.routT > 0 ? '潰散中' : ONAME[g.order]}・${FORMS[g.form].n}・士氣 ${Math.round(g.mor)}`;
+    const sp = card.querySelector('.nm span'); if (sp) sp.textContent = `${g.routT > 0 ? '潰散中' : ONAME[g.order]}・${uj('form', FORMS[g.form].n + '・')}士氣 ${Math.round(g.mor)}`;
     const mb = $('mor' + k); if (mb) { mb.style.width = Math.round(g.mor) + '%'; mb.style.background = g.mor < 25 ? C.red : g.mor < 50 ? C.gold : GCOL[k]; }
     setCd('skc' + k, g.skT);
   }
@@ -3410,8 +3414,10 @@ try { const s = localStorage.getItem('fhwz-cmd'); if (s && CMDS[s]) lsel.cmd = s
 let subT = null;
 function subtitle(text) { const el = $('subtitle'); el.textContent = text ? `「${text}」` : ''; clearTimeout(subT); if (text) subT = setTimeout(() => el.textContent = '', 3200); }
 function lobbySay(key, kind) { const line = VO[key][kind]; subtitle(line); sig(key, BIG.has(kind)); speak(key, line); }
-function chipsFor(u) { return `<div class="row"><span class="lbl">克制</span>${STRONG[u].map(v => `<span class="chip s">${glyph(v, 14, '#E7BC6A')}${UNITS[v].n}</span>`).join('')}</div><div class="row"><span class="lbl">被克</span>${weakOf(u).map(v => `<span class="chip w">${glyph(v, 14, '#F0978A')}${UNITS[v].n}</span>`).join('')}</div>`; }
-function cmdDetail(k) { const d = CMDS[k]; return `<div class="dl"><div><b>陣營</b><span>${d.fac}・${facOf(k) >= 0 ? '專屬兵種：' + FUNITS[facOf(k)].map(u => UNITS[u].n).join('、') : '沒有專屬兵種；僱用傭兵 -30% 費用、時間 +50%'}</span></div><div><b>被動</b><span>${d.p}</span></div><div><b>Q</b><span><strong>${d.q.n}</strong>　${d.q.d}</span></div><div><b>R</b><span><strong>${d.r.n}</strong>　${d.r.d}</span></div><div><b>E</b><span><strong>${d.e.n}</strong>　${d.e.d}（6 級解鎖）</span></div></div>${talentHtml(k)}`; }
+function chipsFor(u) { const ok = v => phase === 'lobby' || unitOk(v), w = weakOf(u).filter(ok), st = STRONG[u].filter(ok); return `<div class="row"><span class="lbl">克制</span>${st.length ? '' : '<span class="chip">—</span>'}${st.map(v => `<span class="chip s">${glyph(v, 14, '#E7BC6A')}${UNITS[v].n}</span>`).join('')}</div><div class="row"><span class="lbl">被克</span>${w.length ? '' : '<span class="chip">—</span>'}${w.map(v => `<span class="chip w">${glyph(v, 14, '#F0978A')}${UNITS[v].n}</span>`).join('')}</div>`; }
+function cmdDetail(k) { const d = CMDS[k], fi = facOf(k);
+  const fac = fi >= 0 ? `專屬兵種：${FUNITS[fi].map(u => UNITS[u].n).join('、')}${lkTag('faction')}` : `沒有專屬兵種${unl('camps') ? '；僱用傭兵 -30% 費用、時間 +50%' : `；傭兵費用 -30%、服役時間 +50%${lkTag('camps')}`}`;
+  return `<div class="dl"><div><b>陣營</b><span>${d.fac}・${fac}</span></div><div><b>被動</b><span>${passTxt(k)}</span></div><div><b>Q</b><span><strong>${d.q.n}</strong>　${d.q.d}</span></div><div><b>R</b><span><strong>${d.r.n}</strong>${lkTag('r')}　${d.r.d}</span></div><div><b>E</b><span><strong>${d.e.n}</strong>${lkTag('e')}　${d.e.d}（6 級解鎖）</span></div></div>${talentHtml(k)}`; }
 function showLobby() {
   if (NET.client || NET.ws) netDrop();
   phase = 'lobby'; G = null; player = null;
@@ -3421,6 +3427,7 @@ function showLobby() {
   $('lnav').innerHTML = `<div class="logo">烽火王座</div><div class="sub">指揮官 MOBA・試玩版</div>` + LT.map(t => `<button type="button" class="tab ${t[0] === ltab ? 'on' : ''}" data-t="${t[0]}">${glyph(t[2], 22, t[0] === ltab ? C.gold : C.muted)}${t[1]}</button>`).join('') + `<button type="button" id="lexit">${glyph('exit', 22, C.muted)}離開遊戲</button>`;
   $('lnav').onclick = e => { if (e.target.closest('#lexit')) { confirmExitGame(); return; } const b = e.target.closest('[data-t]'); if (b) { ltab = b.dataset.t; showLobby(); } };
   drawLobbyPanel();
+  rankUpModal();
 }
 function drawLobbyPanel() {
   const P2 = $('lpanel'), cap = $('lcap');
@@ -3434,7 +3441,7 @@ function drawLobbyPanel() {
       P2.innerHTML = `${rankBar()}<div><div class="kick">出征準備・3 對 3</div><h2>選擇你的指揮官</h2></div>${grid}
        <div class="roster"><div class="side"><span class="h" style="color:var(--blue)">聖輝聯軍（我方）</span><div class="slot">${icon(k, 30, 0)}<span>${d.n}（你）</span></div><div class="slot">${icon('unknown', 30)}<span style="color:var(--muted)">AI 隊友</span></div><div class="slot">${icon('unknown', 30)}<span style="color:var(--muted)">AI 隊友</span></div></div>
        <div class="side"><span class="h" style="color:var(--red)">黑曜大軍（敵方）</span>${('<div class="slot">' + icon('unknown', 30, 1) + '<span style="color:var(--muted)">開戰後揭曉</span></div>').repeat(3)}</div></div>
-       <div class="dl"><div><b>規則</b><span>進場後為兩支隊伍各選一種兵種（可相同），推倒三路防禦塔，摧毀敵方主塔獲勝。指揮官不親自攻擊，靠部隊、技能與佈局取勝。</span></div><div><b>戰略</b><span>側擊與背擊、士氣潰散、老兵晉升、搶奪糧倉與烽火台、草叢埋伏、討伐泰坦與巨龍。</span></div><div><b>翻盤</b><span>落後方獲得逆風加成；擊殺連勝者領懸賞；主塔告急時王城衛隊出陣。</span></div></div>
+       <div class="dl"><div><b>規則</b><span>進場後為兩支隊伍各選一種兵種（可相同），推倒三路防禦塔，摧毀敵方主塔獲勝。指揮官不親自攻擊，靠部隊、技能與佈局取勝。</span></div><div><b>戰略</b><span>側擊與背擊、士氣潰散、老兵晉升、搶奪糧倉與烽火台、草叢藏兵${uj('obj', '、討伐泰坦與巨龍')}。</span></div><div><b>翻盤</b><span>落後方獲得逆風加成；擊殺連勝者領懸賞；主塔告急時王城衛隊出陣。</span></div></div>
        <div class="bar"><button type="button" class="go" id="goBtn">${glyph('advance', 22, '#1A1408')}以 ${d.n} 出征</button><button type="button" class="go alt" id="tutBtn">${glyph('spyglass', 20)}新手教學</button><button type="button" class="go alt ${unlMe('online') ? '' : 'lockd'}" id="netBtn">${glyph('banner', 20)}線上對戰${unlMe('online') ? '' : `（軍階 ${rankNeed('online')}）`}</button></div>${tutSeen() ? '' : '<p style="color:var(--gold)">第一次玩？建議先完成新手教學（約 3 分鐘，敵軍會等你）。</p>'}`;
       $('goBtn').onclick = () => { ac(); drum(); lobbySay(k, 'start'); try { localStorage.setItem('fhwz-cmd', k); } catch (e) {} startWhenArt(() => newGame(k)); };
       $('netBtn').onclick = () => { ac(); if (!unlMe('online')) { toast(`線上對戰在軍階 ${rankNeed('online')}「${RANKS[rankNeed('online') - 1].n}」開放：先打幾場單人對戰熟悉操作`, 'r'); return; } openNetLobby(); };
@@ -3458,7 +3465,7 @@ function drawLobbyPanel() {
     const pk = L => `<div class="pick">${L.map(v => `<button type="button" class="pk ${v === u ? 'on' : ''} ${unlMe('unit:' + v) ? '' : 'lockd'}" data-u="${v}">${icon(v, 44)}<span>${UNITS[v].n}</span>${unlMe('unit:' + v) ? '' : `<small class="lk">軍階 ${rankNeed('unit:' + v)}</small>`}</button>`).join('')}</div>`;
     P2.innerHTML = `<div><div class="kick">兵種圖鑑・共用 9 種＋兩國專屬各 2 種＋傭兵 3 種</div>${unlMe('unit:' + u) ? '' : `<div class="lockn">軍階 ${rankNeed('unit:' + u)}「${RANKS[rankNeed('unit:' + u) - 1].n}」解鎖</div>`}<h2>${U.n}${U.fac === 0 ? '<small style="color:var(--blue)">　聖輝王國專屬</small>' : U.fac === 1 ? '<small style="color:var(--red)">　黑曜帝國專屬</small>' : U.merc ? '<small style="color:var(--gold)">　傭兵</small>' : ''}</h2></div>
      ${pk(UKEYS)}<div class="kick">聖輝王國專屬（瓦倫、希爾薇）</div>${pk(FUNITS[0])}<div class="kick">黑曜帝國專屬（歐瑞恩、格魯、布蘭德）</div>${pk(FUNITS[1])}<div class="kick">傭兵（野區傭兵營地僱用）</div>${pk(MERCS)}
-     <div class="dl"><div><b>特性</b><span>${U.trait}</span></div>${S ? `<div><b>技能</b><span><strong>${S.n}</strong>　${S.d}（冷卻 ${S.cd} 秒・${S.t === 'line' ? '直線' : S.t === 'dir' ? '扇形朝向' : '圓形範圍'}）</span></div>` : `<div><b>僱用</b><span>${U.cost} 軍資・6 名・跟隨指定小隊作戰 120 秒，不佔編制</span></div>`}<div><b>預設陣形</b><span>${FORMS[U.form].n}：${FORMS[U.form].d}</span></div><div><b>數值</b><span>生命 ${U.hp}・攻擊 ${U.atk}・射程 ${U.rng}・移速 ${U.spd}</span></div></div>${chipsFor(u)}
+     <div class="dl"><div><b>特性</b><span>${uTrait(u)}</span></div>${S ? `<div><b>技能</b><span><strong>${S.n}</strong>${lkTag('uskill')}　${S.d}（冷卻 ${S.cd} 秒・${S.t === 'line' ? '直線' : S.t === 'dir' ? '扇形朝向' : '圓形範圍'}）</span></div>` : `<div><b>僱用</b><span>${U.cost} 軍資・6 名・跟隨指定小隊作戰 120 秒，不佔編制</span></div>`}<div><b>預設陣形</b><span>${FORMS[U.form].n}：${FORMS[U.form].d}</span></div><div><b>數值</b><span>生命 ${U.hp}・攻擊 ${U.atk}・射程 ${U.rng}・移速 ${U.spd}</span></div></div>${chipsFor(u)}
      <p>克制方造成 1.5 倍傷害，被克時只造成 0.75 倍。兩支隊伍可選不同兵種，也可以相同。</p>`;
     P2.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { lsel.unit = b.dataset.u; drawLobbyPanel(); });
   } else if (ltab === 'bld') {
@@ -3466,9 +3473,9 @@ function drawLobbyPanel() {
     showModel('bld', b);
     cap.innerHTML = `<div class="t">${Bd.s}</div><div class="n">${Bd.n}</div><div class="hint">拖曳旋轉模型</div>`;
     P2.innerHTML = `<div><div class="kick">建築圖鑑・9 種</div><h2>${Bd.n}</h2></div>
-     <div class="pick">${BKEYS.map(v => `<button type="button" class="pk ${v === b ? 'on' : ''}" data-b="${v}">${icon(v, 44)}<span>${BUILDS[v].n}</span></button>`).join('')}</div>
+     ${unl('b:' + b) ? '' : `<div class="lockn">軍階 ${rankNeed('b:' + b)}「${RANKS[rankNeed('b:' + b) - 1].n}」解鎖</div>`}<div class="pick">${BKEYS.map(v => `<button type="button" class="pk ${v === b ? 'on' : ''} ${unl('b:' + v) ? '' : 'lockd'}" data-b="${v}">${icon(v, 44)}<span>${BUILDS[v].n}</span>${unl('b:' + v) ? '' : `<small class="lk">軍階 ${rankNeed('b:' + v)}</small>`}</button>`).join('')}</div>
      <div class="dl"><div><b>造價</b><span>${glyph('gold', 16, C.gold)} ${Bd.cost} 軍資・建造 ${Bd.t} 秒・生命 ${Bd.hp}</span></div><div><b>功能</b><span>${Bd.d}</span></div><div><b>範圍</b><span>${Bd.r ? Bd.r + '（戰場上以地面圓圈標示）' : '無'}</span></div><div><b>搭配</b><span>${UKEYS.filter(u => BPREF[u].includes(b)).map(u => UNITS[u].n).join('、') || '—'}</span></div>${[1, 2, 3, 4, 5].map(l => `<div><b>${l === 1 ? '1 級' : `${l} 級`}</b><span>${l > 1 ? `${glyph('gold', 14, C.gold)} ${upgCostL(b, l - 1)}・` : ''}${bldEff(b, l)}</span></div>`).join('')}</div>
-     <p>完工的建築可以按 L 升級，最高 5 級，每級生命 +25%。戰場上每座建築頭上都會顯示名稱與功能，建造中會顯示進度。自己的建築可以拆除（建造列的「拆除」或 K 鍵）：完工的返還 50% 軍資，建造中的全額退還。</p>`;
+     <p>完工的建築可以按 L 升級${lkTag('upg')}，最高 5 級，每級生命 +25%。戰場上每座建築頭上都會顯示名稱與功能，建造中會顯示進度。自己的建築可以拆除（建造列的「拆除」或 K 鍵）：完工的返還 50% 軍資，建造中的全額退還。</p>`;
     P2.querySelectorAll('[data-b]').forEach(x => x.onclick = () => { lsel.bld = x.dataset.b; drawLobbyPanel(); });
   } else {
     showModel('core', null);
@@ -3485,7 +3492,7 @@ function setToggles(tg) {
   return tg('bloom', '光暈特效', '水晶、火焰與法術的發光效果（關閉可提升效能）')
     + tg('quick', '快速施放', '按下技能鍵立刻施放在游標處，不顯示瞄準（需滑鼠）')
     + tg('voice', '指揮官語音', '下令與施放技能時朗讀台詞，每位指揮官聲線不同')
-    + tg('sfx', '號角與聲效', '下令號角、角色專屬聲效、建築完成提示')
+    + tg('sfx', '號角與聲效', '下令號角、角色專屬聲效' + (anyB() ? '、建築完成提示' : ''))
     + tg('music', '背景音樂', '依戰況切換：平時、交戰、背水一戰')
     + tg('amb', '戰場環境音', '風聲、遠方兵刃交擊與吶喊')
     + tg('shadow', '即時陰影', '關閉可提升效能');
@@ -3498,8 +3505,8 @@ const modal = $('modal');
 function closeModal() { modal.classList.remove('show'); modal.innerHTML = ''; }
 function unitCard(u, sel, note) {
   const U = UNITS[u], S = USK[u];
-  return `<button type="button" class="card ${sel ? 'sel' : ''}" data-u="${u}"><div style="display:flex;gap:12px;align-items:center">${icon(u, 56)}<div><h3>${U.n}</h3><div class="sub">${U.cls}・每隊 ${U.sq} 人・預設${FORMS[U.form].n}${note ? '・' + note : ''}</div></div></div>
-   <div class="d">${U.trait}</div><div class="d"><b>技能 ${S.n}</b>　${S.d}</div>${chipsFor(u)}</button>`;
+  return `<button type="button" class="card ${sel ? 'sel' : ''}" data-u="${u}"><div style="display:flex;gap:12px;align-items:center">${icon(u, 56)}<div><h3>${U.n}</h3><div class="sub">${U.cls}・每隊 ${U.sq} 人${uj('form', '・預設' + FORMS[U.form].n)}${note ? '・' + note : ''}</div></div></div>
+   <div class="d">${uTrait(u)}</div>${unl('uskill') ? `<div class="d"><b>技能 ${S.n}</b>　${S.d}</div>` : ''}${chipsFor(u)}</button>`;
 }
 function allyCmd(e, attr) { const b = e.target.closest('[' + attr + ']'); return b ? cmds().find(o => o.id === +b.getAttribute(attr)) : null; }
 function teamPanelDown(e) {
@@ -3520,13 +3527,13 @@ function laneWarn() {
 function showMuster() {
   const draw = () => {
     const mp = G.mpick, ms = G.mslot;
-    const slot = k => `<button type="button" class="slotb ${ms === k ? 'on' : ''}" data-slot="${k}">${mp[k] ? icon(mp[k], 44) : icon('unknown', 44)}<span><strong style="color:${GCOL[k]}">第 ${GNUM[k]} 隊</strong><small>${mp[k] ? UNITS[mp[k]].n + '・技能 ' + USK[mp[k]].n : '點此後選擇兵種'}</small></span></button>`;
+    const slot = k => `<button type="button" class="slotb ${ms === k ? 'on' : ''}" data-slot="${k}">${mp[k] ? icon(mp[k], 44) : icon('unknown', 44)}<span><strong style="color:${GCOL[k]}">第 ${GNUM[k]} 隊</strong><small>${mp[k] ? UNITS[mp[k]].n + uj('uskill', '・技能 ' + USK[mp[k]].n) : '點此後選擇兵種'}</small></span></button>`;
     modal.innerHTML = `<div class="sheet"><div class="bar"><div style="display:flex;flex-direction:column;gap:6px;flex:1"><span class="kick">整軍期・敵方看不到你的選擇</span><h1>為兩支隊伍選兵</h1>
-     <p>兩隊可以選不同兵種互補，也可以選同一種集中火力。開戰後右鍵派兵、F / G 施放兩隊的兵種技能。</p></div>
+     <p>兩隊可以選不同兵種互補，也可以選同一種集中火力。開戰後右鍵派兵${uj('uskill', '、F / G 施放兩隊的兵種技能')}。</p></div>
      <div style="text-align:center"><div class="count" id="mcount">30</div><div class="sub" style="color:var(--muted);font-size:12px">秒後自動決定</div></div></div>
-     <h2>分路・決定每位指揮官主攻哪一路</h2>
+     ${unl('team') ? `<h2>分路・決定每位指揮官主攻哪一路</h2>
      <p class="sub" style="color:var(--muted);margin:-4px 0 8px">開戰後仍可以互相支援：點左上隊友的「支援」叫他來你身邊，或點他的分路標籤改派。</p>
-     ${unl('team') ? `<div class="lanes">${laneRows()}</div>${laneWarn()}` : ''}
+     <div class="lanes">${laneRows()}</div>${laneWarn()}` : ''}
      <div class="slots2">${slot(0)}${slot(1)}</div>
      <h2>正在選擇：第 ${GNUM[ms]} 隊</h2>
      <div class="grid">${unitsFor(player).map(u => unitCard(u, u === mp[ms], mp[1 - ms] === u ? '另一隊也選了' : '')).join('')}</div>
@@ -3547,7 +3554,7 @@ function chooseUnits(u0, u1) {
   phase = 'play'; G.waveT = 3;
   groupFrame(0);
   say(player, 'start', true); horn();
-  toast(`開戰！第 I 隊 ${UNITS[u0].n}、第 II 隊 ${UNITS[u1].n}。右鍵派兵，F / G 施放兵種技能`, 'g');
+  toast(`開戰！第 I 隊 ${UNITS[u0].n}、第 II 隊 ${UNITS[u1].n}。${startTip()}`, 'g');
   updateHud(); updateCmdHud();
 }
 function openReform() {
@@ -3556,7 +3563,7 @@ function openReform() {
   let k = G.sel === 'all' ? 0 : G.sel, sel = null;
   const draw = () => {
     const err = canReform(player, k);
-    modal.innerHTML = `<div class="sheet"><div style="display:flex;flex-direction:column;gap:6px"><span class="kick">整編・每隊花費 150 軍資・各自冷卻 90 秒</span><h1>更換隊伍兵種</h1><p>在主堡或補給站範圍內才能整編。新部隊以一半生命值出發，敵方對該隊的情報會重置。</p></div>
+    modal.innerHTML = `<div class="sheet"><div style="display:flex;flex-direction:column;gap:6px"><span class="kick">整編・每隊花費 150 軍資・各自冷卻 90 秒</span><h1>更換隊伍兵種</h1><p>在${reformWhere()}範圍內才能整編。新部隊以一半生命值出發，敵方對該隊的情報會重置。</p></div>
      <div class="slots2">${[0, 1].map(j => `<button type="button" class="slotb ${j === k ? 'on' : ''}" data-slot="${j}">${icon(player.grp[j].utype, 44)}<span><strong style="color:${GCOL[j]}">第 ${GNUM[j]} 隊</strong><small>目前：${UNITS[player.grp[j].utype].n}${player.grp[j].reformT > 0 ? `・冷卻 ${Math.ceil(player.grp[j].reformT)} 秒` : ''}</small></span></button>`).join('')}</div>
      ${err ? `<p style="color:#F0978A">${err}</p>` : ''}
      <div class="grid">${unitsFor(player).filter(u => u !== player.grp[k].utype).map(u => unitCard(u, u === sel)).join('')}</div>
@@ -3569,41 +3576,44 @@ function openReform() {
   phase = 'pause'; modal.classList.add('show'); draw();
 }
 function helpHtml() {
+  const K = (k, key, t) => (k && !unl(k) ? '' : `<div><kbd>${key}</kbd><span>${t}</span></div>`);
+  const od = [['hold', '駐守'], ['charge', '衝鋒'], ['focus', '集火'], ['ambush', '埋伏']].filter(o => unl('o:' + o[0]));
+  const okey = {hold:'X', charge:'B', focus:'N', ambush:'M'};
   return `<h2>調兵遣將</h2>
    <div class="keys">
-    <div><kbd>右鍵地面</kbd><span>選定隊伍移動並固守；按住拖曳決定朝向</span></div>
-    <div><kbd>右鍵敵人</kbd><span>選定隊伍集火該目標</span></div>
-    <div><kbd>Shift+右鍵</kbd><span>選定隊伍衝鋒到該處</span></div>
-    <div><kbd>左鍵士兵</kbd><span>選擇該士兵所屬的隊伍</span></div>
-    <div><kbd>1 / 2 / 3</kbd><span>選第 I 隊 / 第 II 隊 / 全軍（Tab 循環）</span></div>
-    <div><kbd>Z C V</kbd><span>前進、集結、撤退（立即執行）</span></div>
-    <div><kbd>X B N M</kbd><span>駐守、衝鋒、集火、埋伏：按下後地面顯示隊形預覽，右鍵設定位置（按住拖曳決定朝向），左鍵／Esc 取消</span></div>
-    <div><kbd>4–8</kbd><span>方陣、橫列、楔形、圓陣、散兵</span></div>
-    <div><kbd>F / G</kbd><span>第 I 隊 / 第 II 隊兵種技能：顯示瞄準，右鍵設定位置施放</span></div>
-    <div><kbd>空白鍵</kbd><span>戰術部署：時間放慢、鏡頭拉遠，左鍵也能派兵</span></div>
+    ${K(null, '右鍵地面', '選定隊伍移動並固守；按住拖曳決定朝向')}
+    ${K('o:focus', '右鍵敵人', '選定隊伍集火該目標')}
+    ${K('o:charge', 'Shift+右鍵', '選定隊伍衝鋒到該處')}
+    ${K(null, '左鍵士兵', '選擇該士兵所屬的隊伍')}
+    ${K(null, '1 / 2 / 3', '選第 I 隊 / 第 II 隊 / 全軍（Tab 循環）')}
+    ${K(null, 'Z C V', '前進、集結、撤退（立即執行）')}
+    ${K(null, od.map(o => okey[o[0]]).join(' '), `${od.map(o => o[1]).join('、')}：按下後地面顯示隊形預覽，右鍵設定位置（按住拖曳決定朝向），左鍵／Esc 取消`)}
+    ${K('form', '4–8', '方陣、橫列、楔形、圓陣、散兵')}
+    ${K('uskill', 'F / G', '第 I 隊 / 第 II 隊兵種技能：顯示瞄準，右鍵設定位置施放')}
+    ${K('deploy', '空白鍵', '戰術部署：時間放慢、鏡頭拉遠，左鍵也能派兵')}
    </div>
    <h2>指揮官與鏡頭</h2>
    <div class="keys">
-    <div><kbd>WASD</kbd><span>移動指揮官</span></div><div><kbd>Q / R</kbd><span>主動 / 終極技能：顯示範圍與方向，右鍵設定位置施放、左鍵或 Esc 取消</span></div>
-    <div><kbd>E</kbd><span>第三技能（大招）：指揮官 6 級解鎖</span></div><div><kbd>等級</kbd><span>擊殺、推塔、中立目標累積經驗，最高 10 級；每級技能傷害 +5%（對士兵 +2.5%）、Q／R 冷卻 -3%、生命 +6%</span></div>
-    <div><kbd>J</kbd><span>傭兵：站在我方佔領的傭兵營地旁僱用傭兵（清空營地守衛即可佔領）</span></div><div><kbd>9 / 0</kbd><span>天賦：3、5、8 級時二選一</span></div>
-    <div><kbd>U</kbd><span>軍械庫：在主堡範圍內（或陣亡時）替兵種升級武器與護甲，各 3 級</span></div><div><kbd>L</kbd><span>升級建築：右鍵點已完工的自己建築，升到二級（例如戰壕變碉堡）</span></div>
-    <div><kbd>T</kbd><span>整編：在主堡或補給站更換某隊兵種</span></div><div><kbd>建造列</kbd><span>點選建築後點地面放置</span></div><div><kbd>左上隊友</kbd><span>點「支援」叫隊友到你身邊 30 秒；點分路標籤改派他去下一路</span></div><div><kbd>陣亡時</kbd><span>可免費重新整編，復活時兩隊補滿兵力</span></div><div><kbd>K</kbd><span>拆除：右鍵點自己的建築（完工返還 50%、建造中全額退還），騰出建築上限</span></div>
-    <div><kbd>小地圖</kbd><span>左鍵移動鏡頭、右鍵派選定隊伍前往</span></div><div><kbd>中鍵拖曳</kbd><span>平移鏡頭；Y 回到指揮官</span></div>
-    <div><kbd>Esc</kbd><span>取消瞄準／指令／建造，或開啟選單</span></div><div><kbd>手機</kbd><span>點隊伍卡片選隊；戰術部署中點地面派兵；技能按鈕點後點地面施放</span></div>
+    ${K(null, 'WASD', '移動指揮官')}${K(null, unl('r') ? 'Q / R' : 'Q', `${unl('r') ? '主動 / 終極技能' : '主動技能'}：顯示範圍與方向，右鍵設定位置施放、左鍵或 Esc 取消`)}
+    ${K('e', 'E', '第三技能（大招）：指揮官 6 級解鎖')}${K(null, '等級', `擊殺、推塔${uj('obj', '、中立目標')}累積經驗，最高 10 級；每級技能傷害 +5%（對士兵 +2.5%）、${unl('r') ? 'Q／R' : 'Q'} 冷卻 -3%、生命 +6%`)}
+    ${K('camps', 'J', '傭兵：站在我方佔領的傭兵營地旁僱用傭兵（清空營地守衛即可佔領）')}${K('talent', '9 / 0', '天賦：3、5、8 級時二選一')}
+    ${K('armory', 'U', '軍械庫：在主堡範圍內（或陣亡時）替兵種升級武器與護甲，各 3 級')}${K('upg', 'L', '升級建築：右鍵點已完工的自己建築，最高升到 5 級')}
+    ${K('reform', 'T', `整編：在${reformWhere()}更換某隊兵種`)}${anyB() ? K(null, '建造列', '點選建築後點地面放置') : ''}${K('team', '左上隊友', '點「支援」叫隊友到你身邊 30 秒；點分路標籤改派他去下一路')}${K(null, '陣亡時', '可免費重新整編，復活時兩隊補滿兵力')}${anyB() ? K(null, 'K', '拆除：右鍵點自己的建築（完工返還 50%、建造中全額退還），騰出建築上限') : ''}
+    ${K(null, '小地圖', '左鍵移動鏡頭、右鍵派選定隊伍前往')}${K(null, '中鍵拖曳', '平移鏡頭；Y 回到指揮官')}
+    ${K(null, 'Esc', `取消瞄準／指令${anyB() ? '／建造' : ''}，或開啟選單`)}${K(null, '手機', `點隊伍卡片選隊；${unl('deploy') ? '戰術部署中點地面派兵' : '點指令後再點地面派兵'}；技能按鈕點後點地面施放`)}
    </div>
    <h2>戰略與翻盤</h2>
    <div class="keys">
-    <div><kbd>側擊／背擊</kbd><span>從側面打 +25%、從背後打 +50%，並打擊對方士氣（圓陣沒有側背）</span></div>
-    <div><kbd>士氣</kbd><span>傷亡與被夾擊會降低士氣，低於 25 會潰散 5 秒；靠近指揮官、戰旗或休整可回復</span></div>
-    <div><kbd>老兵</kbd><span>隊伍累積戰功升到 ★1–★3，每級攻擊與生命 +8%；整編會失去星級</span></div>
-    <div><kbd>據點</kbd><span>站在糧倉或烽火台圈內佔領：糧倉每秒軍資 +3，烽火台給視野與遠程加成；據點也是補員與整編點</span></div>
-    <div><kbd>草叢</kbd><span>在草叢中的部隊，敵人看不到，除非對方也進入同一片草叢；河流會讓地面部隊減速</span></div>
-    <div><kbd>中立目標</kbd><span>4 分鐘後出現。遠古泰坦給全隊泰坦之力；深淵巨龍會替擊殺方沿最脆弱的路線進軍</span></div>
-    <div><kbd>逆風加成</kbd><span>失塔比對方多 2 座時：軍資 +50%、復活與補員加快、防禦塔傷害 +25%</span></div>
-    <div><kbd>懸賞・背水</kbd><span>連殺 2 名以上的指揮官身上有懸賞；主塔失去保護時王城衛隊出陣，主塔 60 秒減傷</span></div>
+    ${K(null, '側擊／背擊', `從側面打 +25%、從背後打 +50%，並打擊對方士氣${uj('form', '（圓陣沒有側背）')}`)}
+    ${K(null, '士氣', `傷亡與被夾擊會降低士氣，低於 25 會潰散 5 秒；靠近指揮官${uj('b:banner', '、戰旗')}或休整可回復`)}
+    ${K(null, '老兵', '隊伍累積戰功升到 ★1–★3，每級攻擊與生命 +8%；整編會失去星級')}
+    ${K(null, '據點', '站在糧倉或烽火台圈內佔領：糧倉每秒軍資 +3，烽火台給視野與遠程加成；據點也是補員與整編點')}
+    ${K(null, '草叢', '在草叢中的部隊，敵人看不到，除非對方也進入同一片草叢；河流會讓地面部隊減速')}
+    ${K('obj', '中立目標', '4 分鐘後出現。遠古泰坦給全隊泰坦之力；深淵巨龍會替擊殺方沿最脆弱的路線進軍')}
+    ${K(null, '逆風加成', `失塔比對方多 2 座時：軍資 +50%、復活與補員加快、防禦塔傷害 +25%${uj('obj', '、中立目標效果延長')}`)}
+    ${K(null, '懸賞・背水', '連殺 2 名以上的指揮官身上有懸賞；主塔失去保護時王城衛隊出陣，主塔 60 秒減傷')}
    </div>
-   <p>金色圓圈是指揮官的統御範圍（圈內士兵傷害 +10%、士氣回復）。敵兵頭上的「?」代表兵種未確認。指揮官不會普通攻擊。</p>`;
+   <p>金色圓圈是指揮官的統御範圍（圈內士兵傷害 +10%、士氣回復）。敵兵頭上的「?」代表兵種未確認。指揮官不會普通攻擊。${flv() < RMAX && !(G && G.tut) ? `<br>目前軍階 ${flv()}：更多指令與系統會隨軍階開放。` : ''}</p>`;
 }
 function showMenu() {
   if (phase !== 'play') return;
@@ -3685,7 +3695,7 @@ function levelUp(c) {
   if (c.team === 0 || (c.vis && c.vis[0])) { floaters.push({x:c.x, y:5.8, z:c.z, s:`Lv ${c.lvl}`, c:C.gold, t:1.6}); if (c.respawn <= 0) { fxRing(c.x, c.z, 4.5, C.gold, 0.8); sparks(c.x, 1.5, c.z, '#F1D29A', 18, 6, -4); } }
   if (c === player) {
     if (c.lvl === 6 && unl('e')) { toast(`升到 6 級：解鎖第三技能「${CMDS[c.key].e.n}」（E）`, 'g'); say(c, 'r', true); }
-    else toast(`指揮官升到 ${c.lvl} 級：技能傷害 +${Math.round((skPow(c) - 1)*100)}%（對士兵減半）、Q／R 冷卻 -${(c.lvl - 1)*3}%、生命 +${(c.lvl - 1)*6}%`, 'b');
+    else toast(`指揮官升到 ${c.lvl} 級：技能傷害 +${Math.round((skPow(c) - 1)*100)}%（對士兵減半）、${unl('r') ? 'Q／R' : 'Q'} 冷卻 -${(c.lvl - 1)*3}%、生命 +${(c.lvl - 1)*6}%`, 'b');
     chime();
   }
   talentCheck(c);
@@ -4056,35 +4066,35 @@ const TSTEPS = [
   {t:() => FINE() ? '按 <b>1</b> 選擇第 I 隊（或點右下指揮台的第 I 隊卡片）。' : '點右下指揮台的<b>第 I 隊</b>卡片選擇它。', ok:() => G.sel === 0},
   {t:() => FINE() ? '在地面按<b>右鍵</b>：第 I 隊會移動到那裡並固守。按住右鍵拖曳可以決定隊伍朝向。' : '點地面：第 I 隊會移動到那裡並固守。', on:T => { T.o0 = G.stats.orders; }, ok:T => G.stats.orders > T.o0 && ['hold', 'move', 'focus', 'charge'].includes(player.grp[0].order)},
   {t:() => FINE() ? '按 <b>3</b> 選全軍，再按 <b>Z 前進</b>：兩隊會沿著中路推進。' : '點<b>全軍</b>，再點<b>前進</b>：兩隊會沿著中路推進。', ok:() => G.sel === 'all' && player.grp[0].order === 'advance' && player.grp[1].order === 'advance'},
-  {t:() => FINE() ? '按 <b>4–8</b> 切換陣形：6 楔形適合衝鋒、7 圓陣防守最穩、5 橫列讓弓兵射得更遠。' : '點指揮台下方的<b>陣形</b>按鈕切換：楔形適合衝鋒、圓陣防守最穩、橫列讓弓兵射得更遠。', on:T => { T.f0 = player.grp.map(g => g.form).join(); }, ok:T => player.grp.map(g => g.form).join() !== T.f0},
-  {t:() => FINE() ? '按 <b>F</b> 準備第 I 隊的兵種技能，地面會顯示範圍，再按<b>右鍵</b>施放。' : '點第 I 隊卡片右邊的<b>技能</b>，再點地面施放。', ok:() => player.grp[0].skT > 0 || player.grp[1].skT > 0},
+  {need:() => unl('form'), t:() => FINE() ? '按 <b>4–8</b> 切換陣形：6 楔形適合衝鋒、7 圓陣防守最穩、5 橫列讓弓兵射得更遠。' : '點指揮台下方的<b>陣形</b>按鈕切換：楔形適合衝鋒、圓陣防守最穩、橫列讓弓兵射得更遠。', on:T => { T.f0 = player.grp.map(g => g.form).join(); }, ok:T => player.grp.map(g => g.form).join() !== T.f0},
+  {need:() => unl('uskill'), t:() => FINE() ? '按 <b>F</b> 準備第 I 隊的兵種技能，地面會顯示範圍，再按<b>右鍵</b>施放。' : '點第 I 隊卡片右邊的<b>技能</b>，再點地面施放。', ok:() => player.grp[0].skT > 0 || player.grp[1].skT > 0},
   {t:() => FINE() ? '按 <b>Q</b> 準備指揮官技能，同樣用<b>右鍵</b>指定位置施放。' : '點右下的<b>指揮官技能</b>，再點地面施放。', ok:() => player.qT > 0},
-  {t:() => '點下方建造列的建築（例如 <b>拒馬 80</b>），再在部隊附近的地面點一下放置。建築能強化或剋制特定兵種。', on:T => { T.b0 = player.builds; player.gold = Math.max(player.gold, 300); }, ok:T => player.builds > T.b0},
-  {t:() => FINE() ? '按 <b>U</b> 打開軍械庫：用軍資替兵種升級武器與護甲（各 3 級），只能在主堡範圍內或陣亡時購買。先打開看看。' : '點右下的<b>軍械庫</b>：用軍資替兵種升級武器與護甲（各 3 級），只能在主堡範圍內或陣亡時購買。', ok:T => T.arm},
-  {t:() => FINE() ? '按<b>空白鍵</b>進入戰術部署：時間放慢、鏡頭拉遠，方便下指令。再按一次離開。' : '點指揮台下方的<b>戰術部署</b>：時間放慢、鏡頭拉遠。再點一次離開。', ok:T => { if (G.deploy) T.dep = true; return T.dep && !G.deploy; }},
-  {t:() => '<b>成長</b>：擊殺、推塔、打中立目標會讓指揮官升級（右下頭像的等級與經驗環），每級強化 Q／R，<b>6 級解鎖 E 大招</b>。建築完工後可按 <b>L</b> 升到二級。', ok:T => T.t > 9},
+  {need:() => anyB(), t:() => { const b = BKEYS.filter(k => unl('b:' + k)).sort((x, y) => BUILDS[x].cost - BUILDS[y].cost)[0]; return `點下方建造列的建築（例如 <b>${BUILDS[b].n} ${BUILDS[b].cost}</b>），再在部隊附近的地面點一下放置。建築能強化或剋制特定兵種。`; }, on:T => { T.b0 = player.builds; player.gold = Math.max(player.gold, 300); }, ok:T => player.builds > T.b0},
+  {need:() => unl('armory'), t:() => FINE() ? '按 <b>U</b> 打開軍械庫：用軍資替兵種升級武器與護甲（各 3 級），只能在主堡範圍內或陣亡時購買。先打開看看。' : '點右下的<b>軍械庫</b>：用軍資替兵種升級武器與護甲（各 3 級），只能在主堡範圍內或陣亡時購買。', ok:T => T.arm},
+  {need:() => unl('deploy'), t:() => FINE() ? '按<b>空白鍵</b>進入戰術部署：時間放慢、鏡頭拉遠，方便下指令。再按一次離開。' : '點指揮台下方的<b>戰術部署</b>：時間放慢、鏡頭拉遠。再點一次離開。', ok:T => { if (G.deploy) T.dep = true; return T.dep && !G.deploy; }},
+  {t:() => `<b>成長</b>：擊殺、推塔${uj('obj', '、打中立目標')}會讓指揮官升級（右下頭像的等級與經驗環），每級強化 ${unl('r') ? 'Q／R' : 'Q'}${uj('e', '，<b>6 級解鎖 E 大招</b>')}。${uj('upg', '建築完工後可按 <b>L</b> 升級，最高 5 級。')}${flv() < RMAX ? '打完對戰會提升<b>軍階</b>，逐步開放更多指令與系統。' : ''}`, ok:T => T.t > 9},
   {t:() => '教學完成！敵軍出動了：推倒任一路三座防禦塔、摧毀敵方主塔就能獲勝。按 <b>H</b> 隨時查看操作說明。', ok:T => T.t > 6}
 ];
 function startTutorial(k) {
   newGame(k);
-  G.flv = RMAX; buildHud();
   chooseUnits('pike', 'archer');
-  G.tut = {i:-1, t:0, done:false};
+  G.tut = {i:-1, t:0, done:false, st:TSTEPS.filter(s => !s.need || s.need())};
   tutGo(0);
 }
 function tutGo(i) {
   const T = G.tut; T.i = i; T.t = 0;
-  if (i >= TSTEPS.length) { tutEnd(); return; }
-  if (TSTEPS[i].on) TSTEPS[i].on(T);
+  const ST = T.st || TSTEPS;
+  if (i >= ST.length) { tutEnd(); return; }
+  if (ST[i].on) ST[i].on(T);
   let el = $('tut');
   if (!el) { el = document.createElement('div'); el.id = 'tut'; $('hudroot').appendChild(el); }
-  el.innerHTML = `<div class="tk"><span>新手教學・${i + 1} / ${TSTEPS.length}</span><button type="button" id="tutSkip">跳過教學</button></div><div class="tt">${TSTEPS[i].t()}</div><div class="tbar"><i style="width:${Math.round(i/TSTEPS.length*100)}%"></i></div>`;
+  el.innerHTML = `<div class="tk"><span>新手教學・${i + 1} / ${ST.length}</span><button type="button" id="tutSkip">跳過教學</button></div><div class="tt">${ST[i].t()}</div><div class="tbar"><i style="width:${Math.round(i/ST.length*100)}%"></i></div>`;
   $('tutSkip').onclick = () => tutEnd();
   if (i > 0) chime();
 }
 function tutTick(dt) {
   const T = G.tut; T.t += dt;
-  if (T.i >= 0 && T.i < TSTEPS.length && TSTEPS[T.i].ok(T) && T.t > 0.6) tutGo(T.i + 1);
+  const ST = T.st || TSTEPS; if (T.i >= 0 && T.i < ST.length && ST[T.i].ok(T) && T.t > 0.6) tutGo(T.i + 1);
 }
 function tutEnd() {
   if (!G || !G.tut) return;
@@ -4112,7 +4122,7 @@ function showResults(win) {
      <div class="res"><div class="card"><h3 style="color:${C.blue}">聖輝聯軍・擊殺 ${T0.k}・折損士兵 ${T0.l}・推倒敵塔 ${G.lost[1]}</h3><table>${head}${cs.filter(c => c.team === 0).map(row).join('')}</table>
        <h3 style="color:${C.red};margin-top:12px">黑曜大軍・擊殺 ${T1.k}・折損士兵 ${T1.l}・推倒敵塔 ${G.lost[0]}</h3><table>${head}${cs.filter(c => c.team === 1).map(row).join('')}</table></div>
      <div class="card"><h3>經濟曲線（累計軍資）</h3><canvas id="ecoC" width="520" height="230" style="width:100%;height:auto"></canvas>
-       <div class="keys" style="margin-top:8px"><div><kbd>${G.stats.orders}</kbd><span>下達指令</span></div><div><kbd>${G.stats.skills}</kbd><span>施放技能</span></div><div><kbd>${G.stats.caps}</kbd><span>佔領據點</span></div><div><kbd>${G.stats.objs}</kbd><span>中立目標</span></div></div></div></div>
+       <div class="keys" style="margin-top:8px"><div><kbd>${G.stats.orders}</kbd><span>下達指令</span></div><div><kbd>${G.stats.skills}</kbd><span>施放技能</span></div><div><kbd>${G.stats.caps}</kbd><span>佔領據點</span></div>${unl('obj') ? `<div><kbd>${G.stats.objs}</kbd><span>中立目標</span></div>` : ''}</div></div></div>
      ${rankHtml(RK)}${repHtml(RR)}
      <div class="bar"><button type="button" class="go" id="againQ">${glyph('advance', 20, '#1A1408')}再來一場（${CMDS[player.key].n}）</button><button type="button" class="go alt" id="again">換指揮官（回大廳）</button></div></div>`;
   modal.classList.add('show');
@@ -4175,7 +4185,7 @@ function applyTal(c, tier, i) {
   c.tal[tier] = T[0];
   if (T[0] === 'v_p2') for (const e of ents) if (e.kind === 'sol' && !e.dead && e.owner === c && (e.utype === 'shield' || e.utype === 'templar')) { e.maxHp *= 1.2; e.hp *= 1.2; }
   if (T[0] === 'b_p1') for (const e of ents) if (e.kind === 'bld' && !e.dead && e.owner === c) { e.maxHp *= 1.2; e.hp *= 1.2; }
-  if (c === player) { toast(`天賦「${T[1]}」：${T[2]}`, 'g'); chime(); updateHud(); }
+  if (c === player) { toast(`天賦「${T[1]}」：${lkTxt(T[2])}`, 'g'); chime(); updateHud(); }
 }
 function talentCheck(c) {
   if (!unl('talent')) return;
@@ -4189,12 +4199,12 @@ function showTalent() {
   if (!G || !G.talQ || !G.talQ.length || phase === 'over') { if (el) el.remove(); return; }
   const tier = G.talQ[0], T = TALENTS[player.key][tier];
   if (!el) { el = document.createElement('div'); el.id = 'talent'; $('hudroot').appendChild(el); }
-  el.innerHTML = `<div class="th">${glyph('talent', 18, C.gold)} ${TAL_LV[tier]} 級天賦・二選一<small>（按 9／0 或點選，遊戲不暫停）</small></div><div class="tb">${T.map((t, i) => `<button type="button" data-ti="${i}"><b><kbd>${i ? '0' : '9'}</kbd>${t[1]}</b><small>${t[2]}</small></button>`).join('')}</div>`;
+  el.innerHTML = `<div class="th">${glyph('talent', 18, C.gold)} ${TAL_LV[tier]} 級天賦・二選一<small>（按 9／0 或點選，遊戲不暫停）</small></div><div class="tb">${T.map((t, i) => `<button type="button" data-ti="${i}"><b><kbd>${i ? '0' : '9'}</kbd>${t[1]}</b><small>${lkTxt(t[2])}</small></button>`).join('')}</div>`;
   el.querySelectorAll('[data-ti]').forEach(b => b.onclick = () => pickTalent(+b.dataset.ti));
 }
 function pickTalent(i) { if (!G || !G.talQ || !G.talQ.length || !unl('talent')) return; applyTal(player, G.talQ.shift(), i); showTalent(); }
 function talentHtml(k) {
-  return `<div class="dl">${TALENTS[k].map((tier, j) => `<div><b>${TAL_LV[j]} 級天賦</b><span>${tier.map(t => `<strong>${t[1]}</strong>：${t[2]}`).join('<br>或　')}</span></div>`).join('')}</div>`;
+  return `<div class="dl">${TALENTS[k].map((tier, j) => `<div><b>${TAL_LV[j]} 級天賦</b>${j ? '' : lkTag('talent')}<span>${tier.map(t => `<strong>${t[1]}</strong>：${lkTxt(t[2])}`).join('<br>或　')}</span></div>`).join('')}</div>`;
 }
 function talentTitle(c) { return (c.tal || []).filter(Boolean).map(id => { for (const tier of TALENTS[c.key]) for (const t of tier) if (t[0] === id) return t[1]; return ''; }).join('・'); }
 
@@ -4300,7 +4310,7 @@ function campInit() {
 }
 function campProps(cp) {
   const g = new THREE.Group(); g.position.set(cp.x, 0, cp.z);
-  const rg = new THREE.Mesh(new THREE.RingGeometry(6.2, 6.6, 48), new THREE.MeshBasicMaterial({color:C.neutral, transparent:true, opacity:0.35, depthWrite:false, side:THREE.DoubleSide})); rg.rotation.x = -Math.PI/2; rg.position.y = 0.12; g.add(rg);
+  const rg = new THREE.Mesh(new THREE.RingGeometry(6.2, 6.6, 48), new THREE.MeshBasicMaterial({color:C.neutral, transparent:true, opacity:0.35, depthWrite:false, side:THREE.DoubleSide})); rg.rotation.x = -Math.PI/2; rg.position.y = 0.12; g.add(rg); G.campRings = G.campRings || []; G.campRings.push(rg);
   const stone = new THREE.MeshLambertMaterial({color:'#8E8A80'}), wood = new THREE.MeshLambertMaterial({color:'#6B4E32'}), cloth = new THREE.MeshLambertMaterial({color:'#A8946E'});
   if (cp.type === 'wolf') for (let i = 0; i < 5; i++) { const a = i*1.3 + 0.4, m = new THREE.Mesh(new THREE.DodecahedronGeometry(1 + (i % 3)*0.5, 0), stone); m.position.set(Math.sin(a)*7.5, 0.4, Math.cos(a)*7.5); m.rotation.set(i, i*2, 0); m.castShadow = true; g.add(m); }
   if (cp.type === 'golem') for (let i = 0; i < 4; i++) { const a = i*1.57 + 0.6, h = 2 + (i % 2)*2.5, m = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.8, h, 8), stone); m.position.set(Math.sin(a)*7, h/2, Math.cos(a)*7); m.rotation.z = (i % 2) ? 0.08 : -0.12; m.castShadow = true; g.add(m); }
@@ -4425,6 +4435,7 @@ function aiMerc(c) {
 
 // ---------- per-frame bookkeeping ----------
 function featTick2(dt) {
+  if (G.campRings) { const v = unl('camps'); if (G.campRings[0].visible !== v) for (const r of G.campRings) r.visible = v; }
   if (unl('camps')) campTick(); undeadTick();
   G.tplT = (G.tplT || 0) - dt;
   if (G.tplT <= 0) { G.tplT = 0.25; G.tpl = [[], []]; for (const e of ents) if (e.kind === 'sol' && !e.dead && e.utype === 'templar' && e.team < 2) G.tpl[e.team].push({x:e.x, z:e.z}); }
@@ -4438,7 +4449,7 @@ function featTick2(dt) {
   if (G.talQ && G.talQ.length && !$('talent')) showTalent();
 }
 function drawCampsMini(mctx, Pm) {
-  if (!G || !G.camps) return;
+  if (!G || !G.camps || !unl('camps')) return;
   for (const k in G.camps) {
     const cs = G.camps[k], x = Pm(cs.cp.x), y = Pm(cs.cp.z), alive = cs.mobs.length > 0;
     mctx.fillStyle = cs.owner === 0 ? C.blue : cs.owner === 1 ? C.red : alive ? C.neutral : 'rgba(150,150,150,.4)';
@@ -4484,7 +4495,7 @@ function bldEff(type, l) {
     case 'arrowtower': return `每發 ${V('dmg')} 傷害、射程 ${V('rng')}${V('n2') ? `、每次多射 ${V('n2')} 箭` : ''}，對飛行加倍`;
     case 'cheval': return `敵軍減速 ${V('slow')}%，撞上的騎兵或衝鋒者受 ${V('dmg')} 傷害並暈眩 ${V('stun')} 秒`;
     case 'barracks': return `部隊補員從這裡出發${V('rf') ? `，每次多 ${V('rf')} 人` : ''}${V('cd') ? `，全隊補員間隔 -${V('cd')}%` : ''}`;
-    case 'obelisk': return `${V('all') ? '所有魔法兵種（法師、死靈術士、祭司）' : '法師'}射程 +${V('rng')}%、攻速 +${V('spd')}%`;
+    case 'obelisk': return `${V('all') ? lkTxt('所有魔法兵種（法師、死靈術士、祭司）') : '法師'}射程 +${V('rng')}%、攻速 +${V('spd')}%`;
     case 'banner': return `範圍內友軍攻速 +${V('spd')}%、士氣回復 +${V('mor')}／秒${V('dmg') ? `、傷害 +${V('dmg')}%` : ''}`;
     case 'watch': return `視野 ${V('vis')}、揭露隱身、辨識兵種${V('mark') ? `，視野內敵軍受到的傷害 +${V('mark')}%` : ''}`;
     case 'trap': return `隱形；踏入的敵軍定身 ${V('root')} 秒並受 ${V('dmg')} 傷害${V('ch') > 1 ? '，可以觸發 2 次' : ''}`;
@@ -4733,39 +4744,53 @@ const soldierSkin = (c, type) => c && c.skU && c.skU[type] || '';
 
 // ---------- shop (lobby tab) ----------
 let shopPrev = null;     // skin being previewed on the lobby stage
+let shopTab = 'cmd';    // 'cmd' | 'unit'
 function drawShop(P2, cap) {
-  const k = lsel.cmd, u = lsel.unit;
-  const prevU = shopPrev && shopPrev.includes(':') ? shopPrev : null, prevC = shopPrev && SKINS[shopPrev] ? shopPrev : null;
-  const cSkin = prevC || (shopPrev === 'none' ? '' : (owns(PROF.eqC[k]) ? PROF.eqC[k] : ''));
-  if (prevU) showModel('unit', prevU.split(':')[0], prevU); else showModel('cmd', k, cSkin);
-  const shown = prevU ? `${UNITS[prevU.split(':')[0]].n}・${USKIN[prevU.split(':')[1]].n}` : `${CMDS[k].n}・${cSkin ? SKINS[cSkin].n : '原始造型'}`;
-  cap.innerHTML = `<div class="t">外觀預覽</div><div class="n">${shown}</div><div class="hint">拖曳旋轉模型</div>`;
-  const card = (id, nm, price, eqd, ownd, sw) => `<div class="sk ${eqd ? 'eq' : ''}"><button type="button" class="skp" data-pv="${id}"><span class="sw" style="background:${sw}"></span><span><b>${nm}</b><small>${ownd ? (eqd ? '使用中' : '已擁有') : `${price} 聲望`}</small></span></button>
-    ${ownd ? `<button type="button" class="go alt skb" data-eq="${id}">${eqd ? '卸下' : '使用'}</button>` : `<button type="button" class="go skb" data-buy="${id}" ${PROF.rep < price ? 'data-poor="1"' : ''}>${glyph('rep', 16, '#1A1408')}購買</button>`}</div>`;
-  const cmdSk = Object.keys(SKINS).filter(id => SKINS[id].c === k);
-  P2.innerHTML = `<div class="bar" style="align-items:center"><div style="flex:1"><div class="kick">軍需商店・外觀只改變造型，不影響能力</div><h2 style="display:flex;align-items:center;gap:8px">${glyph('rep', 30, C.gold)}聲望 ${PROF.rep}</h2></div>
-</div>
-    <p style="color:var(--muted);font-size:13px;margin:0">每場對戰結束都會獲得聲望：勝利 100、完成對戰 30、線上對戰再加 50%、MVP +30、每日首勝 +100。聲望與外觀存在這個瀏覽器裡。</p>
-    <div class="kick">指揮官外觀（點名字預覽）</div><div class="pick">${CKEYS.map(c => `<button type="button" class="pk ${c === k && !prevU ? 'on' : ''}" data-sc="${c}">${icon(c, 40)}<span>${CMDS[c].n}</span></button>`).join('')}</div>
-    <div class="skins"><div class="sk ${owns(PROF.eqC[k]) ? '' : 'eq'}"><button type="button" class="skp" data-pv="none"><span class="sw" style="background:#5A6070"></span><span><b>原始造型</b><small>${owns(PROF.eqC[k]) ? '已擁有' : '使用中'}</small></span></button>${owns(PROF.eqC[k]) ? `<button type="button" class="go alt skb" data-eq="" data-eqk="${k}">使用</button>` : ''}</div>${cmdSk.map(id => card(id, SKINS[id].n, SKINS[id].price, PROF.eqC[k] === id, owns(id), SKINS[id].fx)).join('')}</div>
-    <div class="kick">兵種外觀（套用到你這個兵種的所有士兵）</div><div class="pick upick">${SKU().map(v => `<button type="button" class="pk ${v === u && prevU ? 'on' : ''}" data-su="${v}">${icon(v, 36)}<span>${UNITS[v].n}</span></button>`).join('')}</div>
-    <div class="skins">${Object.keys(USKIN).map(v => { const id = uSkinId(u, v); return card(id, `${UNITS[u].n}・${USKIN[v].n}`, USKIN[v].price, PROF.eqU[u] === id, owns(id), USKIN[v].metal); }).join('')}</div>`;
+  const isC = shopTab === 'cmd', k = lsel.cmd, u = lsel.unit;
+  // what the stage shows: the previewed skin, else what is equipped
+  const eqC = owns(PROF.eqC[k]) ? PROF.eqC[k] : '', eqU = owns(PROF.eqU[u]) ? PROF.eqU[u] : '';
+  const pv = shopPrev === 'none' ? '' : shopPrev || (isC ? eqC : eqU);
+  if (isC) showModel('cmd', k, pv); else showModel('unit', u, pv);
+  const who = isC ? CMDS[k].n : UNITS[u].n;
+  const pvName = !pv ? '原始造型' : isC ? SKINS[pv].n : USKIN[pv.split(':')[1]].n;
+  cap.innerHTML = `<div class="t">外觀預覽</div><div class="n">${who}・${pvName}</div><div class="hint">拖曳旋轉模型</div>`;
+  // one row per look: swatch, name, state, action
+  const row = (id, nm, price, sw, eqd, ownd) => {
+    const on = (pv || '') === id;
+    const act = eqd ? '<span class="shst eq">使用中</span>'
+      : ownd ? `<button type="button" class="go alt shb" data-eq="${id}">使用</button>`
+      : `<button type="button" class="go shb ${PROF.rep < price ? 'poor' : ''}" data-buy="${id}">${glyph('rep', 15, '#1A1408')}${price}</button>`;
+    return `<div class="shr ${on ? 'on' : ''} ${eqd ? 'eqd' : ''}"><button type="button" class="shp" data-pv="${id || 'none'}"><span class="shsw" style="background:${sw}"></span><span class="shn"><b>${nm}</b><small>${eqd ? '目前穿著' : ownd ? '已擁有' : on ? '預覽中' : '點一下預覽'}</small></span></button>${act}</div>`;
+  };
+  let pick, rows;
+  if (isC) {
+    pick = `<div class="pick">${CKEYS.map(c => `<button type="button" class="pk ${c === k ? 'on' : ''}" data-sc="${c}">${icon(c, 40)}<span>${CMDS[c].n}</span>${Object.keys(SKINS).some(id => SKINS[id].c === c && owns(id)) ? '<small class="own">已有外觀</small>' : ''}</button>`).join('')}</div>`;
+    rows = row('', '原始造型', 0, '#5A6070', !eqC, true) + Object.keys(SKINS).filter(id => SKINS[id].c === k).map(id => row(id, SKINS[id].n, SKINS[id].price, SKINS[id].cloth, eqC === id, owns(id))).join('');
+  } else {
+    pick = `<div class="pick upick">${SKU().map(v => `<button type="button" class="pk ${v === u ? 'on' : ''}" data-su="${v}">${icon(v, 34)}<span>${UNITS[v].n}</span></button>`).join('')}</div>`;
+    rows = row('', '原始造型', 0, '#5A6070', !eqU, true) + Object.keys(USKIN).map(v => { const id = uSkinId(u, v); return row(id, USKIN[v].n, USKIN[v].price, USKIN[v].metal, eqU === id, owns(id)); }).join('');
+  }
+  P2.innerHTML = `<div><div class="kick">軍需商店・外觀只改變造型，不影響能力</div>
+     <div class="shtop"><h2>${glyph('rep', 30, C.gold)}${PROF.rep}<small>聲望</small></h2><details class="shhow"><summary>怎麼獲得聲望？</summary><p>每場對戰結束都會獲得：勝利 100、完成對戰 30、線上對戰再加 50%、MVP +30、每日首勝 +100。聲望與外觀存在這個瀏覽器裡。</p></details></div></div>
+    <div class="seg" role="tablist"><button type="button" role="tab" aria-selected="${isC}" class="${isC ? 'on' : ''}" data-st="cmd">指揮官外觀</button><button type="button" role="tab" aria-selected="${!isC}" class="${isC ? '' : 'on'}" data-st="unit">兵種外觀</button></div>
+    <section class="shsec"><div class="kick">1．選擇${isC ? '指揮官' : '兵種'}</div>${pick}</section>
+    <section class="shsec"><div class="kick">2．${who}的外觀${isC ? '' : '<span class="shnote">套用到你這個兵種的所有士兵</span>'}</div><div class="shlist">${rows}</div></section>`;
+  P2.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { shopTab = b.dataset.st; shopPrev = null; drawLobbyPanel(); });
   P2.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { lsel.cmd = b.dataset.sc; shopPrev = null; drawLobbyPanel(); });
-  P2.querySelectorAll('[data-su]').forEach(b => b.onclick = () => { lsel.unit = b.dataset.su; shopPrev = PROF.eqU[lsel.unit] && owns(PROF.eqU[lsel.unit]) ? PROF.eqU[lsel.unit] : uSkinId(lsel.unit, 'gold'); drawLobbyPanel(); });
+  P2.querySelectorAll('[data-su]').forEach(b => b.onclick = () => { lsel.unit = b.dataset.su; shopPrev = null; drawLobbyPanel(); });
   P2.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { shopPrev = b.dataset.pv; drawLobbyPanel(); });
   P2.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => {
     const id = b.dataset.buy, S = SKINS[id] || USKIN[id.split(':')[1]];
-    if (PROF.rep < S.price) { toast(`聲望不足：還差 ${S.price - PROF.rep}`, 'r'); return; }
+    if (PROF.rep < S.price) { toast(`聲望不足：還差 ${S.price - PROF.rep}`, 'r'); shopPrev = id; drawLobbyPanel(); return; }
     PROF.rep -= S.price; PROF.own.push(id);
     if (SKINS[id]) PROF.eqC[SKINS[id].c] = id; else PROF.eqU[id.split(':')[0]] = id;
-    saveProf(); chime(); toast(`購買並換上「${SKINS[id] ? S.n : UNITS[id.split(':')[0]].n + '・' + S.n}」`, 'g'); shopPrev = id; drawLobbyPanel();
+    saveProf(); chime(); toast(`購買並換上「${SKINS[id] ? S.n : UNITS[id.split(':')[0]].n + '・' + S.n}」`, 'g'); shopPrev = null; drawLobbyPanel();
   });
   P2.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => {
     const id = b.dataset.eq;
-    if (!id) { delete PROF.eqC[b.dataset.eqk]; shopPrev = 'none'; }
-    else if (SKINS[id]) { const c = SKINS[id].c; if (PROF.eqC[c] === id) delete PROF.eqC[c]; else PROF.eqC[c] = id; shopPrev = id; }
-    else { const t = id.split(':')[0]; if (PROF.eqU[t] === id) delete PROF.eqU[t]; else PROF.eqU[t] = id; shopPrev = id; }
-    saveProf(); drawLobbyPanel();
+    if (isC) { if (id) PROF.eqC[k] = id; else delete PROF.eqC[k]; }
+    else { if (id) PROF.eqU[u] = id; else delete PROF.eqU[u]; }
+    saveProf(); shopPrev = null; drawLobbyPanel();
   });
 }
 
@@ -4774,12 +4799,12 @@ function drawShop(P2, cap) {
 // single player, the lowest rank among the humans online. Everything above that level is off for every commander,
 // AI included, and the AI strength on both sides follows the level too.
 const RANKS = [
-  {n:'見習指揮官', xp:0,    foe:0.8, ally:1.1, smart:false, u:['o:advance', 'o:hold', 'o:rally', 'o:retreat', 'o:move', 'o:focus', 'q', 'reform', 'unit:pike', 'unit:shield', 'unit:archer', 'cmd:valen', 'cmd:sylvie', 'cmd:gru']},
+  {n:'見習指揮官', xp:0,    foe:0.8, ally:1.1, smart:false, u:['o:advance', 'o:hold', 'o:rally', 'o:retreat', 'o:move', 'o:focus', 'q', 'reform', 'b:arrowtower', 'b:supply', 'b:barracks', 'upg', 'unit:pike', 'unit:shield', 'unit:archer', 'cmd:valen', 'cmd:sylvie', 'cmd:gru']},
   {n:'百夫長',     xp:100,  foe:0.9, ally:1.1, smart:false, u:['r', 'unit:cav', 'unit:priest', 'team', 'deploy', 'cmd:brand']},
-  {n:'千夫長',     xp:250,  foe:1, ally:1.05, smart:false, u:['uskill', 'form', 'o:charge', 'b:trench', 'b:arrowtower', 'b:cheval', 'online']},
-  {n:'騎士隊長',   xp:450,  foe:1, ally:1, smart:false, u:['b:supply', 'b:banner', 'b:watch', 'unit:mage', 'unit:scout', 'cmd:orion', 'obj']},
+  {n:'千夫長',     xp:250,  foe:1, ally:1.05, smart:false, u:['uskill', 'form', 'o:charge', 'b:trench', 'b:cheval', 'online']},
+  {n:'騎士隊長',   xp:450,  foe:1, ally:1, smart:false, u:['b:banner', 'b:watch', 'unit:mage', 'unit:scout', 'cmd:orion', 'obj']},
   {n:'軍團長',     xp:750,  foe:1, ally:1, smart:true, u:['e', 'armory', 'unit:griffin', 'unit:siege', 'cmd:raven', 'o:ambush']},
-  {n:'將軍',       xp:1100, foe:1.05, ally:1, smart:true, u:['talent', 'upg', 'b:barracks', 'b:obelisk', 'b:trap']},
+  {n:'將軍',       xp:1100, foe:1.05, ally:1, smart:true, u:['talent', 'b:obelisk', 'b:trap']},
   {n:'大將軍',     xp:1550, foe:1.1, ally:1, smart:true, u:['camps', 'faction']},
   {n:'元帥',       xp:2100, foe:1.2, ally:1, smart:true, u:[]}
 ];
@@ -4807,7 +4832,8 @@ const trueRank = () => { let r = 1; for (let i = 0; i < RMAX; i++) if (PROFR().r
 const flv = () => (G && G.flv) || myRank();
 const unl = k => rankNeed(k) <= flv();
 const unlMe = k => rankNeed(k) <= myRank();
-function lockedMsg(k) { if (unl(k)) return false; toast(`${unlName(k)}在軍階 ${rankNeed(k)}「${RANKS[rankNeed(k) - 1].n}」解鎖`, 'r'); return true; }
+// a locked hotkey does nothing in a match: no hint about features the player doesn't have yet
+function lockedMsg(k) { if (unl(k)) return false; if (phase === 'lobby') toast(`${unlName(k)}在軍階 ${rankNeed(k)}「${RANKS[rankNeed(k) - 1].n}」解鎖`, 'r'); return true; }
 const unitOk = u => unl('unit:' + u);
 
 // ---------- AI strength per level ----------
@@ -4845,8 +4871,85 @@ function rankIntro() {
   if (!G || G.tut || NET.client) return;
   const r = myRank(); if (PROF.seenRank === r) return;
   PROF.seenRank = r; saveProf();
-  if (r === 1) { toast('見習指揮官：先熟悉移動、右鍵派兵和 Q 技能。打完對戰會升階，逐步開放更多功能', 'b'); return; }
+  if (r === 1) { toast('見習指揮官：先熟悉移動、右鍵派兵、Q 技能，用軍資蓋箭塔、補給站、前線兵營並升級。打完對戰會升階，逐步開放更多功能', 'b'); return; }
   const nu = RANKS[r - 1].u; if (nu.length) setTimeout(() => toast(`軍階 ${r}「${RANKS[r - 1].n}」新開放：${nu.map(unlName).join('、')}`, 'g'), 1500);
+}
+
+// ---------- rank-aware wording: never mention a feature the player can't use yet ----------
+const uj = (k, s, alt = '') => (unl(k) ? s : alt);
+const anyB = () => BKEYS.some(b => unl('b:' + b));
+const reformWhere = () => (unl('b:supply') ? '主堡、補給站或我方據點' : '主堡或我方據點');
+// strip mentions of locked units inside fixed description strings
+const LKT = [['，對騎兵反擊', 'unit:cav'], ['與聖殿騎士', 'unit:templar'], ['、死靈術士', 'unit:necro'], ['與獅鷲騎士', 'unit:griffin'], ['與獅鷲', 'unit:griffin']];
+const lkTxt = s => LKT.reduce((a, [w, k]) => (unl(k) ? a : a.split(w).join('')), s);
+const lkTag = k => (unl(k) ? '' : `<small class="lk">軍階 ${rankNeed(k)}</small>`);
+function griffinTrait() {
+  const n = ['trench', 'cheval', 'trap'].filter(b => unl('b:' + b)).map(b => BUILDS[b].n);
+  return n.length ? `俯衝：無視${n.length > 1 ? n.slice(0, -1).join('、') + '與' + n[n.length - 1] : n[0]}` : '俯衝：飛越地面障礙';
+}
+const uTrait = u => (u === 'griffin' ? griffinTrait() : lkTxt(UNITS[u].trait));
+// what each passive needs before it does anything
+const PDEP = {valen:() => anyB(), orion:() => unl('b:obelisk'), gru:() => unl('unit:cav')};
+function passTxt(k) {
+  const d = CMDS[k];
+  if (k === 'valen' && !anyB()) return `${d.p}<small class="lk">建築在軍階 ${Math.min(...BKEYS.map(b => rankNeed('b:' + b)))} 開放後生效</small>`;
+  if (k === 'orion' && !unl('b:obelisk')) return `${d.p}<small class="lk">方尖碑在軍階 ${rankNeed('b:obelisk')} 開放後生效</small>`;
+  if (k === 'gru' && !unl('unit:griffin')) return unl('unit:cav') ? '狂野血脈：騎兵移速 +10%' : `狂野血脈：騎兵移速 +10%<small class="lk">騎兵在軍階 ${rankNeed('unit:cav')} 開放</small>`;
+  return d.p;
+}
+function hudTip() {
+  if (FINE()) {
+    const ok = [['X', '駐守', 'hold'], ['B', '衝鋒', 'charge'], ['N', '集火', 'focus'], ['M', '埋伏', 'ambush']].filter(o => unl('o:' + o[2]));
+    return ['右鍵：設定小隊位置（拖曳定朝向）', `${ok.map(o => o[0]).join(' ')} 後右鍵：${ok.map(o => o[1]).join('／')}`, '左鍵點士兵：選隊',
+      uj('uskill', 'F / G 後右鍵：兵種技能'), 'H 說明', 'Esc 選單'].filter(Boolean).join('・');
+  }
+  return ['點隊伍卡片選隊', unl('deploy') ? '戰術部署模式下點地面派兵' : '點指令後再點地面派兵', '技能按鈕點一下後點地面施放'].join('；');
+}
+const startTip = () => `右鍵派兵${uj('uskill', '，F / G 施放兵種技能')}`;
+
+// ---------- lobby: show what a promotion opened ----------
+const UHOW = {
+  r:['core', 'R 終極技能', '按 R 顯示範圍，右鍵施放。威力大、冷卻長，留給關鍵時刻'],
+  e:['e_valen', '6 級大招（E）', '指揮官升到 6 級後按 E 施放第三技能'],
+  uskill:['archer', '兵種技能（F／G）', '按 F／G 準備第 I／II 隊的兵種技能，地面顯示範圍後右鍵施放'],
+  form:['f_wedge', '陣形（4–8）', '方陣、橫列、楔形、圓陣、散兵：楔形適合衝鋒、圓陣最耐打、橫列讓弓兵射得更遠'],
+  team:['troops', '隊友支援與分路', '整軍時安排每位指揮官主攻哪一路；開戰後點左上隊友的「支援」叫他來身邊 30 秒'],
+  deploy:['deploy', '戰術部署（空白鍵）', '時間放慢、鏡頭拉遠，左鍵也能派兵，適合一次下多個指令'],
+  online:['core', '線上對戰', '大廳「線上對戰」：與真人對戰或合作打 AI，最多 6 人'],
+  obj:['titan', '中立目標', '4 分鐘後河道出現遠古泰坦與深淵巨龍，擊倒可獲得全隊加成或巨龍替你進軍'],
+  armory:['armory', '軍械庫（U）', '在主堡範圍內（或陣亡時）用軍資替兵種升級武器與護甲，各 3 級'],
+  talent:['talent', '指揮官天賦', '指揮官 3、5、8 級時從兩個天賦二選一（按 9／0）'],
+  upg:['upgrade', '建築升級（L）', '按 L 後右鍵點自己已完工的建築，最高升到 5 級'],
+  camps:['mercs', '野區營地與傭兵（J）', '清空狼窩、石像遺跡得到增益；佔領傭兵營地後靠近按 J 僱用傭兵'],
+  faction:['templar', '兩國專屬兵種', '依指揮官陣營，整軍時多出 2 種專屬兵種可選']
+};
+function unlCard(k) {
+  const [a, b] = k.split(':');
+  let ic, nm, how;
+  if (a === 'o') { const O = ORDERS.find(o => o[0] === b); ic = b; nm = `指令「${O[1]}」`; how = `${/^[a-z]$/.test(O[2]) ? `按 ${O[2].toUpperCase()}：` : ''}${O[3]}`; }
+  else if (a === 'unit') { ic = b; nm = `兵種「${UNITS[b].n}」`; how = `${UNITS[b].cls}・${uTrait(b)}。整軍與整編時可選`; }
+  else if (a === 'cmd') { ic = b; nm = `指揮官「${CMDS[b].n}」`; how = `${CMDS[b].t}・${CMDS[b].fac}。出征時可選`; }
+  else if (a === 'b') { ic = b; nm = `建築「${BUILDS[b].n}」`; how = `${BUILDS[b].d}。${BUILDS[b].cost} 軍資，點下方建造列放置`; }
+  else { const H = UHOW[k] || ['core', unlName(k), '']; ic = k === 'e' ? 'e_' + (lsel.cmd || 'valen') : H[0]; nm = H[1]; how = H[2]; }
+  return `<div class="ucard">${icon(ic, 46)}<div><b>${nm}</b><small>${how}</small></div></div>`;
+}
+function rankUpModal() {
+  const now = trueRank();
+  if (typeof PROFR().seenLobby !== 'number') { PROF.seenLobby = now; saveProf(); return false; }
+  if (PROF.vet || now <= PROF.seenLobby) { if (now > PROF.seenLobby) { PROF.seenLobby = now; saveProf(); } return false; }
+  const from = PROF.seenLobby;
+  let body = '';
+  for (let r = from + 1; r <= now; r++) {
+    const R = RANKS[r - 1], P = RANKS[r - 2];
+    const ai = R.foe !== P.foe || R.smart !== P.smart ? `<p class="aiup">AI 對手變強${R.smart && !P.smart ? '，也會開始用埋伏、集火等戰術' : ''}</p>` : '';
+    body += `<h2>軍階 ${r}「${R.n}」</h2>${R.u.length ? `<div class="ucards">${R.u.map(unlCard).join('')}</div>` : ''}${ai}`;
+  }
+  modal.innerHTML = `<div class="sheet rankup-m"><div style="display:flex;gap:14px;align-items:center"><div class="rk big">${now}</div><div><span class="kick">晉升</span><h1>你晉升為「${RANKS[now - 1].n}」</h1><p>以下內容已經開放，下一場對戰就能使用。</p></div></div>
+    ${body}<div class="bar"><button type="button" class="go" id="okRU">${glyph('advance', 20, '#1A1408')}知道了</button></div></div>`;
+  modal.classList.add('show');
+  $('okRU').onclick = () => { PROF.seenLobby = now; PROF.seenRank = now; saveProf(); closeModal(); drawLobbyPanel(); };
+  try { chime(); } catch (e) {}
+  return true;
 }
 
 // ================= v1.0: online multiplayer =================
@@ -4856,7 +4959,7 @@ function rankIntro() {
 // minimap, "我方/敵方") keeps working unchanged; positions, teams and lanes are mirrored on the way in and out.
 const SVR = globalThis.NETSV || null;
 const NET = {client:false, team:0, mirror:false, ws:null, url:'', name:'', id:null, room:null, you:null, ents:new Map(), zmap:new Map(), lastSend:0, mv:{x:0, z:0}, rpickS:'', snapN:0, hp:new Map()};
-const NET_VER = '1.3.2';      // must match the server's copy of the game
+const NET_VER = '1.3.5';      // must match the server's copy of the game
 const NET_URL_DEFAULT = '';   // build_itch.py can bake the server address in
 const MIRL = {top:'bot', mid:'mid', bot:'top'};
 const CAMPMIR = {wolfB:'wolfR', wolfR:'wolfB', golemB:'golemR', golemR:'golemB', mercN:'mercS', mercS:'mercN'};
@@ -5081,7 +5184,7 @@ function netApply(S) {
   if (S.ph === 'muster' && phase === 'muster') { G.muster = S.mu; const el = $('mcount'); if (el) el.textContent = Math.max(0, Math.ceil(S.mu)); }
   if (S.ph === 'play' && phase === 'muster' && player) {
     closeModal(); phase = 'play'; say(player, 'start', true); horn();
-    toast(`開戰！第 I 隊 ${UNITS[player.grp[0].utype].n}、第 II 隊 ${UNITS[player.grp[1].utype].n}。右鍵派兵，F / G 施放兵種技能`, 'g');
+    toast(`開戰！第 I 隊 ${UNITS[player.grp[0].utype].n}、第 II 隊 ${UNITS[player.grp[1].utype].n}。${startTip()}`, 'g');
     updateHud(); updateCmdHud();
   }
   if (S.full && S.ph === 'play' && player) { closeModal(); phase = 'play'; updateHud(); updateCmdHud(); }
@@ -5108,8 +5211,8 @@ function netPrivApply(P) {
   // own events the server does not announce to us
   if (c.lvl > lv0 && lv0 > 0) {
     floaters.push({x:c.x, y:5.8, z:c.z, s:`Lv ${c.lvl}`, c:C.gold, t:1.6}); if (c.respawn <= 0) { fxRing(c.x, c.z, 4.5, C.gold, 0.8); sparks(c.x, 1.5, c.z, '#F1D29A', 18, 6, -4); }
-    if (c.lvl >= 6 && lv0 < 6) { toast(`升到 6 級：解鎖第三技能「${CMDS[c.key].e.n}」（E）`, 'g'); say(c, 'r', true); }
-    else toast(`指揮官升到 ${c.lvl} 級：技能傷害 +${Math.round((skPow(c) - 1)*100)}%（對士兵減半）、Q／R 冷卻 -${(c.lvl - 1)*3}%、生命 +${(c.lvl - 1)*6}%`, 'b');
+    if (c.lvl >= 6 && lv0 < 6 && unl('e')) { toast(`升到 6 級：解鎖第三技能「${CMDS[c.key].e.n}」（E）`, 'g'); say(c, 'r', true); }
+    else toast(`指揮官升到 ${c.lvl} 級：技能傷害 +${Math.round((skPow(c) - 1)*100)}%（對士兵減半）、${unl('r') ? 'Q／R' : 'Q'} 冷卻 -${(c.lvl - 1)*3}%、生命 +${(c.lvl - 1)*6}%`, 'b');
     chime();
   }
   const tq = JSON.stringify(P.tq);
@@ -5210,7 +5313,7 @@ function netWrap() {
   upgradeBld = (c, b) => { if (!NET.client || c !== player) return o.upgradeBld(c, b); const err = canUpg(c, b); if (err) { toast(err, 'r'); return false; } netCmdSend({t:'upg', b:b.id}); cancelUpg(); chime(); return true; };
   buyArm = (c, u, k) => { if (!NET.client || c !== player) return o.buyArm(c, u, k); const lv = armLv(c, u, k); if (lv >= 3) return '已達最高等級'; if (!atBase(c)) return '回到主堡範圍內（或陣亡等待復活時）才能購買'; if (c.gold < ARM_COST[lv]) return '軍資不足'; netCmdSend({t:'arm', u, k}); c.gold -= ARM_COST[lv]; c.arm[u] = c.arm[u] || {w:0, a:0}; c.arm[u][k] = lv + 1; return null; };
   hireMerc = (c, u, gk) => { if (!NET.client || c !== player) return o.hireMerc(c, u, gk); if (!heldCampNear(c)) return '要站在我方佔領的傭兵營地旁才能僱用'; if (c.mercUntil > G.time) return '目前的傭兵還在服役'; if (c.gold < mercCost(c, u)) return '軍資不足'; netCmdSend({t:'merc', u, g:gk}); toast(`僱用${UNITS[u].n}`, 'g'); return null; };
-  pickTalent = i => { if (!NET.client) return o.pickTalent(i); if (!G.talQ || !G.talQ.length) return; const tier = G.talQ.shift(); netCmdSend({t:'tal', i}); const T = TALENTS[player.key][tier][i]; toast(`天賦「${T[1]}」：${T[2]}`, 'g'); chime(); showTalent(); };
+  pickTalent = i => { if (!NET.client) return o.pickTalent(i); if (!G.talQ || !G.talQ.length) return; const tier = G.talQ.shift(); netCmdSend({t:'tal', i}); const T = TALENTS[player.key][tier][i]; toast(`天賦「${T[1]}」：${lkTxt(T[2])}`, 'g'); chime(); showTalent(); };
   reform = (c, k, type) => { if (!NET.client || c !== player) return o.reform(c, k, type); const err = canReform(c, k); if (err) { toast(err, 'r'); return false; } netCmdSend({t:'reform', k, u:type}); toast(`第${GNUM[k]}隊整編為${UNITS[type].n}`, 'b'); return true; };
   chooseUnits = (u0, u1) => {
     if (!NET.client) return o.chooseUnits(u0, u1);
