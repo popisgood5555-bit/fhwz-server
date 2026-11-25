@@ -235,9 +235,102 @@ setInterval(() => { for (const cl of clients) cl.cmdN = 0; }, 1000);
 // keep idle connections alive through proxies, and drop dead ones
 setInterval(() => { for (const cl of clients) { if (!cl.ws.alive) { cl.ws.close(); continue; } cl.ws.alive = false; cl.ws.frame(9, Buffer.alloc(0)); } }, 25000);
 
+// ---------------- cloud saves bound to an itch.io account ----------------
+// The player signs in on itch.io (OAuth implicit flow, scope profile:me) in a popup that ends on /itch/cb here.
+// We check the itch.io key once, remember only the itch user id, and hand the game a random session key (sk).
+// Saves live in Upstash Redis (REST, so still no npm packages); without it they fall back to memory (lost on restart).
+const ITCH_CLIENT = process.env.ITCH_CLIENT_ID || '';
+const KV_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/$/, ''), KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const MEM = new Map();
+async function kv(...cmd) {
+  if (!KV_URL) {
+    const [op, k, v] = cmd;
+    if (op === 'GET') return MEM.has(k) ? MEM.get(k) : null;
+    if (op === 'SET') { MEM.set(k, v); return 'OK'; }
+    if (op === 'DEL') { MEM.delete(k); return 1; }
+    return null;
+  }
+  const r = await fetch(KV_URL, {method: 'POST', headers: {Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json'}, body: JSON.stringify(cmd)});
+  const j = await r.json(); if (j.error) throw new Error(j.error); return j.result;
+}
+const pend = new Map();          // OAuth state -> {sk, uid, name, t}
+setInterval(() => { const now = Date.now(); for (const [k, v] of pend) if (now - v.t > 10*60e3) pend.delete(k); }, 60e3);
+const lastWrite = new Map();     // uid -> time of the last save, to keep writes under one per 3 s
+const okState = s => typeof s === 'string' && /^[A-Za-z0-9]{16,64}$/.test(s);
+const okSk = s => typeof s === 'string' && /^[a-f0-9]{48}$/.test(s);
+function body(req, max = 40000) {
+  return new Promise((ok, no) => { let b = ''; req.on('data', d => { b += d; if (b.length > max) { no(new Error('too large')); req.destroy(); } }); req.on('end', () => ok(b)); req.on('error', no); });
+}
+function json(res, code, o) { res.writeHead(code, {'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store'}); res.end(JSON.stringify(o)); }
+const origin = req => `${(req.headers['x-forwarded-proto'] || 'http').split(',')[0]}://${req.headers.host}`;
+const CB_PAGE = `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>烽火王座・綁定 itch.io</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0E1116;color:#EDE6D6;font:16px/1.6 system-ui,"Noto Sans TC",sans-serif}main{max-width:420px;padding:28px;text-align:center}h1{font-size:22px;color:#F1D29A;margin:0 0 8px}.e{color:#F0B8AE}</style></head>
+<body><main><h1>烽火王座</h1><p id="m">正在確認 itch.io 帳號…</p></main><script>
+(async () => {
+  const h = new URLSearchParams(location.hash.slice(1)); history.replaceState(null, '', location.pathname);
+  const m = document.getElementById('m'), tok = h.get('access_token'), st = h.get('state');
+  if (!tok || !st) { m.className = 'e'; m.textContent = '沒有收到 itch.io 的授權，請回到遊戲重新按「綁定」。'; return; }
+  try {
+    const r = await fetch('/itch/token', {method: 'POST', headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({state: st, token: tok})}).then(r => r.json());
+    if (!r.ok) throw new Error(r.err || '');
+    m.innerHTML = '已綁定 itch.io 帳號 <b>' + r.name.replace(/[<>&]/g, '') + '</b>。<br>可以關閉這個視窗，回到遊戲。';
+    setTimeout(() => window.close(), 2500);
+  } catch (e) { m.className = 'e'; m.textContent = '綁定失敗：' + (e.message || '請稍後再試'); }
+})();
+</script></body></html>`;
+async function cloudRoute(req, res, u) {
+  const p = u.pathname;
+  if (req.method === 'OPTIONS') { res.writeHead(204, {'Access-Control-Allow-Methods': 'GET,POST', 'Access-Control-Allow-Headers': 'Content-Type'}); res.end(); return true; }
+  if (p === '/itch/status') { json(res, 200, {itch: !!ITCH_CLIENT, persist: !!KV_URL}); return true; }
+  if (p === '/itch/login') {
+    const s = u.searchParams.get('s');
+    if (!ITCH_CLIENT || !okState(s)) { res.writeHead(400, {'Content-Type': 'text/plain; charset=utf-8'}); res.end(ITCH_CLIENT ? '參數錯誤' : '伺服器尚未設定 ITCH_CLIENT_ID'); return true; }
+    const q = new URLSearchParams({client_id: ITCH_CLIENT, scope: 'profile:me', response_type: 'token', redirect_uri: `${origin(req)}/itch/cb`, state: s});
+    res.writeHead(302, {Location: `https://itch.io/user/oauth?${q}`}); res.end(); return true;
+  }
+  if (p === '/itch/cb') { res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer'}); res.end(CB_PAGE); return true; }
+  if (p === '/itch/token' && req.method === 'POST') {
+    const b = JSON.parse(await body(req) || '{}');
+    if (!okState(b.state) || typeof b.token !== 'string' || b.token.length > 200) return json(res, 400, {ok: false, err: '參數錯誤'}), true;
+    const r = process.env.FHWZ_TEST_ITCH && b.token.startsWith('test:') ? {user: {id: +b.token.split(':')[1], username: b.token.split(':')[2]}}   // local tests only
+      : await fetch('https://itch.io/api/1/key/me', {headers: {Authorization: `Bearer ${b.token}`}}).then(r => r.json()).catch(() => null);
+    const us = r && r.user;
+    if (!us || !us.id) return json(res, 401, {ok: false, err: 'itch.io 沒有確認這個帳號'}), true;
+    const sk = crypto.randomBytes(24).toString('hex'), name = String(us.display_name || us.username || us.id).slice(0, 40);
+    await kv('SET', `sk:${sk}`, JSON.stringify({uid: us.id, name}));
+    pend.set(b.state, {sk, uid: us.id, name, t: Date.now()});
+    json(res, 200, {ok: true, name}); return true;
+  }
+  if (p === '/itch/claim') {
+    const s = u.searchParams.get('s'), v = okState(s) && pend.get(s);
+    if (!v) { json(res, 200, {wait: true}); return true; }
+    pend.delete(s); json(res, 200, {ok: true, sk: v.sk, uid: v.uid, name: v.name, persist: !!KV_URL}); return true;
+  }
+  if (p === '/save' || p === '/itch/logout') {
+    const b = req.method === 'POST' ? JSON.parse(await body(req) || '{}') : {sk: u.searchParams.get('sk')};
+    if (!okSk(b.sk)) return json(res, 400, {ok: false}), true;
+    const who = JSON.parse(await kv('GET', `sk:${b.sk}`) || 'null');
+    if (!who) return json(res, 401, {ok: false, err: 'relink'}), true;
+    if (p === '/itch/logout') { await kv('DEL', `sk:${b.sk}`); return json(res, 200, {ok: true}), true; }
+    if (req.method !== 'POST') { const d = await kv('GET', `save:${who.uid}`); json(res, 200, {ok: true, name: who.name, save: d ? JSON.parse(d) : null, persist: !!KV_URL}); return true; }
+    const now = Date.now();
+    if (now - (lastWrite.get(who.uid) || 0) < 3000) return json(res, 429, {ok: false, err: 'slow'}), true;
+    if (!b.data || typeof b.data !== 'object') return json(res, 400, {ok: false}), true;
+    lastWrite.set(who.uid, now);
+    const rec = {at: now, data: b.data};
+    await kv('SET', `save:${who.uid}`, JSON.stringify(rec)); json(res, 200, {ok: true, at: now}); return true;
+  }
+  return false;
+}
+
 // ---------------- http ----------------
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  const u = new URL(req.url, 'http://x');
+  if (u.pathname.startsWith('/itch/') || u.pathname === '/save') {
+    cloudRoute(req, res, u).then(done => { if (!done) { res.writeHead(404); res.end(); } }).catch(e => { console.error('cloud', e.message); if (!res.headersSent) json(res, 500, {ok: false, err: '伺服器錯誤'}); });
+    return;
+  }
   if (req.url === '/health' || req.url === '/') {
     res.writeHead(200, {'Content-Type': 'text/plain; charset=utf-8'});
     res.end(`烽火王座伺服器 ${VER} 運作中・房間 ${rooms.size}・連線 ${clients.size}\n`);
