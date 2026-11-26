@@ -3498,7 +3498,7 @@ function showLobby() {
   try { speechSynthesis.cancel(); } catch (e) {}
   closeModal();
   $('hudroot').classList.add('hidden'); $('lobby').classList.remove('hidden');
-  $('lnav').innerHTML = `<div class="logo">烽火王座</div><div class="sub">指揮官 MOBA・試玩版</div>` + LT.map(t => `<button type="button" class="tab ${t[0] === ltab ? 'on' : ''}" data-t="${t[0]}">${glyph(t[2], 22, t[0] === ltab ? C.gold : C.muted)}${t[1]}</button>`).join('') + `<button type="button" id="lexit">${glyph('exit', 22, C.muted)}離開遊戲</button>`;
+  $('lnav').innerHTML = `<div class="logo">烽火王座</div><div class="sub">指揮官 MOBA・試玩版</div>` + authNav() + LT.map(t => `<button type="button" class="tab ${t[0] === ltab ? 'on' : ''}" data-t="${t[0]}">${glyph(t[2], 22, t[0] === ltab ? C.gold : C.muted)}${t[1]}</button>`).join('') + `<button type="button" id="lexit">${glyph('exit', 22, C.muted)}離開遊戲</button>`;
   $('lnav').onclick = e => { if (e.target.closest('#lexit')) { confirmExitGame(); return; } const b = e.target.closest('[data-t]'); if (b) { ltab = b.dataset.t; showLobby(); } };
   drawLobbyPanel();
   rankUpModal();
@@ -5304,37 +5304,80 @@ function ultDispose(z) {
   z.mesh.traverse(o => { if (o.material && o.material.dispose) o.material.dispose(); if (o.userData && o.userData.own && o.geometry) o.geometry.dispose(); });
 }
 
-// ================= v1.7: progress bound to an itch.io account =================
-// The profile (reputation, skins, rank, record) stays in localStorage as before; once linked it is also kept on the
-// game server under the player's itch.io user id, so it follows them to another computer or browser.
-const CLOUD_KEY = 'fhwz-cloud';
-let CLOUD = (() => { try { const c = JSON.parse(localStorage.getItem(CLOUD_KEY) || 'null'); return c && c.sk ? c : null; } catch (e) { return null; } })();
-const CST = {busy:false, msg:'', err:false, pulled:false, status:null, timer:0};
+// ================= v1.9: sign in with itch.io through Firebase =================
+// The profile (reputation, skins, rank, record) stays in localStorage as before. Signing in keeps a copy in Firestore
+// under the player's itch.io account, so it follows them to another computer or browser.
+// Flow: popup → game server /itch/login → itch.io authorize → server checks the itch.io key and signs a Firebase custom
+// token (uid "itch_<itch id>") → the game signs in to Firebase Auth with it and reads/writes Firestore saves/{uid}
+// directly over REST (no Firebase SDK download). Firestore rules only let a player touch their own save.
+const CLOUD_KEY = 'fhwz-auth';
+try { localStorage.removeItem('fhwz-cloud'); } catch (e) {}          // v1.7 server sessions are gone
+let CLOUD = (() => { try { const c = JSON.parse(localStorage.getItem(CLOUD_KEY) || 'null'); return c && c.rt && c.uid && c.key && c.pid ? c : null; } catch (e) { return null; } })();
+const CST = {busy:false, msg:'', err:false, pulled:false, timer:0, link:''};
+const FB = {tok:'', exp:0};                                           // Firebase ID token (memory only, 1 h)
 function cloudSave() { try { if (CLOUD) localStorage.setItem(CLOUD_KEY, JSON.stringify(CLOUD)); else localStorage.removeItem(CLOUD_KEY); } catch (e) {} }
 function cloudBase() {
   let u = NET_URL_DEFAULT; try { u = localStorage.getItem('fhwz-net-url') || u; } catch (e) {}
   return u ? u.trim().replace(/^ws/i, 'http').replace(/\/+$/, '') : '';
 }
-async function cloudReq(path, data, ms = 75000) {
-  const base = cloudBase(); if (!base) throw new Error('還沒有設定伺服器網址');
+async function xfetch(url, opt = {}, ms = 30000) {
   const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), ms);
-  try {
-    const r = await fetch(base + path, data ? {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(data), signal:ctl.signal} : {signal:ctl.signal});
-    const j = await r.json().catch(() => ({})); j.status = r.status; return j;
-  } catch (e) { throw new Error(e.name === 'AbortError' ? '伺服器沒有回應' : '連不上伺服器'); }
+  try { const r = await fetch(url, Object.assign({}, opt, {signal:ctl.signal})); const j = await r.json().catch(() => ({})); j.status = r.status; return j; }
+  catch (e) { throw new Error(e.name === 'AbortError' ? '連線逾時' : '連不上網路'); }
   finally { clearTimeout(to); }
 }
+const srvGet = (path, ms = 75000) => { const b = cloudBase(); if (!b) return Promise.reject(new Error('還沒有設定伺服器網址')); return xfetch(b + path, {}, ms); };
 function cloudNote(msg, err = false) { CST.msg = msg; CST.err = err; if (phase === 'lobby' && ltab === 'set') drawLobbyPanel(); }
 const profSum = p => `軍階 ${rankOfXp(p.rxp || 0)}・聲望 ${p.rep || 0}・${p.games || 0} 場 ${p.wins || 0} 勝・外觀 ${(p.own || []).length} 件`;
 function rankOfXp(x) { let r = 1; RANKS.forEach((R, i) => { if (x >= R.xp) r = i + 1; }); return r; }
 const hasProgress = p => (p.games || 0) > 0 || (p.rep || 0) > 0 || (p.rxp || 0) > 0 || (p.own || []).length > 0;
+const esc = s => String(s).replace(/[<>&"]/g, '');
 function adoptProf(d) {
   if (!d || typeof d.rep !== 'number') return false;
   PROF = Object.assign(PROF0(), d); try { localStorage.setItem(PROF_KEY, JSON.stringify(PROF)); } catch (e) {}
   return true;
 }
 
-// ---------- link ----------
+// ---------- Firebase (REST) ----------
+class FbErr extends Error { constructor(m, code) { super(m); this.code = code; } }
+async function fbToken() {
+  if (!CLOUD) throw new FbErr('尚未登入', 'out');
+  if (FB.tok && Date.now() < FB.exp - 60e3) return FB.tok;
+  const r = await xfetch(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(CLOUD.key)}`,
+    {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`grant_type=refresh_token&refresh_token=${encodeURIComponent(CLOUD.rt)}`});
+  if (!r.id_token) {
+    if (r.status === 400 || r.status === 403) throw new FbErr('登入已失效', 'lost');
+    throw new FbErr('無法連上 Firebase', 'net');
+  }
+  FB.tok = r.id_token; FB.exp = Date.now() + (+r.expires_in || 3600)*1000;
+  if (r.refresh_token && r.refresh_token !== CLOUD.rt) { CLOUD.rt = r.refresh_token; cloudSave(); }
+  return FB.tok;
+}
+const docUrl = () => `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(CLOUD.pid)}/databases/(default)/documents/saves/${encodeURIComponent(CLOUD.uid)}`;
+function fsErr(r) {
+  const m = (r.error && r.error.message) || '';
+  if (r.status === 403) return new FbErr('Firestore 規則不允許讀寫（請照 README 設定安全規則）', 'rules');
+  if (r.status === 404 && /database/i.test(m)) return new FbErr('Firebase 專案還沒有建立 Firestore 資料庫', 'nodb');
+  if (r.status === 401) return new FbErr('登入已失效', 'lost');
+  return new FbErr(`Firestore 錯誤（${r.status}）`, 'net');
+}
+// returns {at, data} or null when this account has no save yet
+async function cloudGet() {
+  const r = await xfetch(docUrl(), {headers:{Authorization:`Bearer ${await fbToken()}`}});
+  if (r.status === 404 && !/database/i.test((r.error && r.error.message) || '')) return null;
+  if (r.status !== 200) throw fsErr(r);
+  const f = r.fields || {};
+  try { return {at:+(f.at && f.at.integerValue) || 0, data:JSON.parse(f.data.stringValue)}; } catch (e) { return null; }
+}
+async function cloudPut(data) {
+  const at = Date.now();
+  const body = {fields:{data:{stringValue:JSON.stringify(data)}, at:{integerValue:String(at)}, name:{stringValue:CLOUD.name}}};
+  const r = await xfetch(docUrl(), {method:'PATCH', headers:{Authorization:`Bearer ${await fbToken()}`, 'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if (r.status !== 200) throw fsErr(r);
+  return at;
+}
+
+// ---------- sign in ----------
 async function linkItch() {
   if (CST.busy) return;
   const base = cloudBase(); if (!base) { cloudNote('還沒有設定伺服器網址，請先到「線上對戰」填入。', true); return; }
@@ -5342,87 +5385,104 @@ async function linkItch() {
   const url = `${base}/itch/login?s=${st}`;
   const pop = window.open(url, 'fhwz-itch', 'width=560,height=780');
   CST.busy = true; CST.link = pop ? '' : url;
-  cloudNote(pop ? '請在跳出的 itch.io 視窗登入並按「Authorize」。伺服器休眠時第一次要等約 1 分鐘。' : '瀏覽器擋住了彈出視窗：請點下面的連結，在新分頁完成授權。');
+  cloudNote(pop ? '請在跳出的 itch.io 視窗登入並按「Authorize」。伺服器休眠時第一次要等約 1 分鐘。' : '瀏覽器擋住了彈出視窗：請點下面的連結，在新分頁完成登入。');
   const t0 = Date.now();
   try {
+    // the popup may land on an error page when the server is not set up; ask once so the player gets a clear message
+    srvGet('/auth/config').then(c => { if (c && c.status === 200 && !c.ok) cloudNote('伺服器還沒設定好 itch.io／Firebase 登入（ITCH_CLIENT_ID、FIREBASE_SERVICE_ACCOUNT、FIREBASE_API_KEY）。', true); }).catch(() => {});
     while (Date.now() - t0 < 6*60e3) {
       await new Promise(r => setTimeout(r, 2000));
-      const r = await cloudReq(`/itch/claim?s=${st}`).catch(() => null);
-      if (r && r.ok) {
-        CLOUD = {sk:r.sk, uid:r.uid, name:r.name, at:0, lt:0}; cloudSave(); CST.link = '';
-        if (r.persist === false) toast('注意：伺服器還沒接上資料庫，雲端紀錄會在伺服器重啟後消失', 'r');
-        CST.busy = false; await cloudFirstSync(); return;
-      }
-      if (r && r.status === 404) { cloudNote('伺服器還不支援 itch.io 綁定：請更新伺服器的 server.js，並設定 ITCH_CLIENT_ID。', true); return; }
+      const r = await srvGet(`/itch/claim?s=${st}`).catch(() => null);
+      if (r && r.ok) { CST.link = ''; await fbSignIn(r); return; }
+      if (r && r.status === 404) { cloudNote('伺服器還不支援 itch.io 登入：請更新伺服器的 server.js。', true); return; }
       if (r && r.status === 400) break;
     }
-    cloudNote('沒有完成授權（逾時）。可以再按一次「綁定」。', true);
+    cloudNote('沒有完成登入（逾時）。可以再按一次「用 itch.io 登入」。', true);
   } finally { CST.busy = false; CST.link = ''; }
 }
-// first link on this device: decide whose progress wins
+async function fbSignIn(c) {
+  cloudNote('正在登入 Firebase…');
+  const key = c.firebase && c.firebase.apiKey, pid = c.firebase && c.firebase.projectId;
+  if (!key || !pid) { cloudNote('伺服器沒有提供 Firebase 設定（FIREBASE_API_KEY）。', true); return; }
+  const r = await xfetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${encodeURIComponent(key)}`,
+    {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({token:c.token, returnSecureToken:true})}).catch(e => ({err:e.message}));
+  if (!r.idToken) {
+    const m = (r.error && r.error.message) || r.err || '';
+    cloudNote(`Firebase 登入失敗：${/CONFIGURATION_NOT_FOUND/.test(m) ? 'Firebase 專案還沒有啟用 Authentication' : /INVALID_CUSTOM_TOKEN|CREDENTIAL_MISMATCH/.test(m) ? '伺服器的服務帳戶金鑰和 API 金鑰不是同一個專案' : m || '請稍後再試'}`, true);
+    return;
+  }
+  CLOUD = {uid:c.uid, name:c.name, rt:r.refreshToken, key, pid, at:0, lt:0}; cloudSave();
+  FB.tok = r.idToken; FB.exp = Date.now() + (+r.expiresIn || 3600)*1000;
+  CST.pulled = true; await cloudFirstSync();
+}
+// first sign-in on this device: decide whose progress wins
 async function cloudFirstSync() {
   cloudNote('已登入，正在讀取雲端紀錄…');
-  const r = await cloudReq(`/save?sk=${CLOUD.sk}`).catch(e => ({err:e.message}));
-  if (!r.ok) { cloudNote(`讀取雲端紀錄失敗：${r.err || '請稍後再試'}`, true); return; }
-  const srv = r.save && r.save.data;
-  if (!srv || !hasProgress(srv)) { await cloudPush(true); cloudNote(`已綁定 ${CLOUD.name}，這台電腦的紀錄已上傳。`); return; }
-  if (!hasProgress(PROF) || JSON.stringify(srv) === JSON.stringify(PROF)) { adoptProf(srv); CLOUD.at = r.save.at; CLOUD.lt = PROF.at || 0; cloudSave(); cloudNote(`已綁定 ${CLOUD.name}，已載入雲端紀錄。`); showLobby(); return; }
-  modal.innerHTML = `<div class="sheet"><span class="kick">綁定 itch.io 帳號・${CLOUD.name}</span><h1>要保留哪一份紀錄？</h1>
-    <p>這個帳號在伺服器上已經有紀錄，和這台電腦上的不同。選一份保留，另一份會被覆蓋。</p>
-    <div class="ccho"><button type="button" data-k="srv"><b>雲端紀錄</b><small>${profSum(srv)}</small><small>最後更新 ${new Date(r.save.at).toLocaleString()}</small></button>
+  let srv;
+  try { srv = await cloudGet(); } catch (e) { cloudFail(e, true); return; }
+  if (!srv || !hasProgress(srv.data)) { if (await cloudPush(true)) cloudNote(`已用 itch.io 帳號 ${CLOUD.name} 登入，這台電腦的紀錄已上傳。`); return; }
+  if (!hasProgress(PROF) || JSON.stringify(srv.data) === JSON.stringify(PROF)) { useCloud(srv); cloudNote(`已用 ${CLOUD.name} 登入，已載入雲端紀錄。`); showLobby(); return; }
+  modal.innerHTML = `<div class="sheet"><span class="kick">itch.io 帳號・${esc(CLOUD.name)}</span><h1>要保留哪一份紀錄？</h1>
+    <p>這個帳號在雲端已經有紀錄，和這台電腦上的不同。選一份保留，另一份會被覆蓋。</p>
+    <div class="ccho"><button type="button" data-k="srv"><b>雲端紀錄</b><small>${profSum(srv.data)}</small><small>最後更新 ${new Date(srv.at).toLocaleString()}</small></button>
     <button type="button" data-k="loc"><b>這台電腦的紀錄</b><small>${profSum(PROF)}</small></button></div></div>`;
   modal.classList.add('show');
   modal.querySelectorAll('[data-k]').forEach(b => b.onclick = async () => {
     closeModal();
-    if (b.dataset.k === 'srv') { adoptProf(srv); CLOUD.at = r.save.at; CLOUD.lt = PROF.at || 0; cloudSave(); cloudNote(`已載入 ${CLOUD.name} 的雲端紀錄。`); showLobby(); }
-    else { await cloudPush(true); cloudNote(`已用這台電腦的紀錄覆蓋 ${CLOUD.name} 的雲端紀錄。`); }
+    if (b.dataset.k === 'srv') { useCloud(srv); cloudNote(`已載入 ${CLOUD.name} 的雲端紀錄。`); showLobby(); }
+    else if (await cloudPush(true)) cloudNote(`已用這台電腦的紀錄覆蓋 ${CLOUD.name} 的雲端紀錄。`);
   });
 }
+function useCloud(srv) { adoptProf(srv.data); CLOUD.at = srv.at; CLOUD.lt = PROF.at || 0; cloudSave(); }
 
 // ---------- sync ----------
+function cloudFail(e, show) {
+  if (e.code === 'lost') { cloudLost(); return; }
+  if (show || e.code === 'rules' || e.code === 'nodb') cloudNote(`同步失敗：${e.message}`, true);
+}
 async function cloudPush(now) {
-  if (!CLOUD) return;
+  if (!CLOUD) return false;
   clearTimeout(CST.timer); CST.timer = 0;
-  const r = await cloudReq('/save', {sk:CLOUD.sk, data:PROF}).catch(e => ({err:e.message}));
-  if (r.ok) { CLOUD.at = r.at; CLOUD.lt = PROF.at || 0; cloudSave(); if (now) cloudNote(`已同步（${new Date(r.at).toLocaleTimeString()}）`); return true; }
-  if (r.status === 429) { CST.timer = setTimeout(() => cloudPush(), 4000); return false; }
-  if (r.err === 'relink') { cloudLost(); return false; }
-  if (now) cloudNote(`同步失敗：${r.err || '請稍後再試'}`, true);
-  return false;
+  try {
+    const at = await cloudPut(PROF);
+    CLOUD.at = at; CLOUD.lt = PROF.at || 0; cloudSave();
+    if (now) cloudNote(`已同步（${new Date(at).toLocaleTimeString()}）`);
+    return true;
+  } catch (e) { cloudFail(e, now); return false; }
 }
 function cloudDirty() { if (!CLOUD) return; clearTimeout(CST.timer); CST.timer = setTimeout(() => cloudPush(), 3000); }
-function cloudLost() { CLOUD = null; cloudSave(); toast('itch.io 綁定已失效，請到「設定」重新綁定（這台電腦的紀錄還在）', 'r'); cloudNote('綁定已失效，請重新綁定。', true); }
+function cloudLost() { CLOUD = null; FB.tok = ''; cloudSave(); toast('itch.io 登入已失效，請到「設定」重新登入（這台電腦的紀錄還在）', 'r'); cloudNote('登入已失效，請重新登入。', true); }
 // when the lobby opens: pick up progress made on another device, or upload what this one did offline
 async function cloudPull(force) {
   if (!CLOUD || (CST.pulled && !force) || CST.busy) return;
   CST.pulled = true;
-  const r = await cloudReq(`/save?sk=${CLOUD.sk}`).catch(() => null);
-  if (!r) { if (force) cloudNote('連不上伺服器，稍後會再試。', true); CST.pulled = false; return; }
-  if (!r.ok) { if (r.err === 'relink') cloudLost(); return; }
-  const srv = r.save, localNew = (PROF.at || 0) > (CLOUD.lt || 0);
+  let srv;
+  try { srv = await cloudGet(); } catch (e) { if (e.code === 'net') { CST.pulled = false; if (force) cloudNote('連不上 Firebase，稍後會再試。', true); } else cloudFail(e, force); return; }
+  const localNew = (PROF.at || 0) > (CLOUD.lt || 0);
   if (srv && srv.at > (CLOUD.at || 0)) {
     if (localNew && hasProgress(PROF)) { await cloudFirstSync(); return; }      // both changed: let the player choose
-    if (adoptProf(srv.data)) { CLOUD.at = srv.at; CLOUD.lt = PROF.at || 0; cloudSave(); toast(`已載入 ${CLOUD.name} 的雲端紀錄`, 'b'); if (phase === 'lobby') showLobby(); }
-  } else if (localNew || !srv) await cloudPush();
+    if (srv.data && typeof srv.data.rep === 'number') { useCloud(srv); toast(`已載入 ${CLOUD.name} 的雲端紀錄`, 'b'); if (phase === 'lobby') showLobby(); }
+  } else if (localNew || !srv) { await cloudPush(force); return; }
   if (force) cloudNote(`已同步（${new Date().toLocaleTimeString()}）`);
 }
-async function unlinkItch() {
+function unlinkItch() {
   if (!CLOUD) return;
-  const sk = CLOUD.sk; CLOUD = null; cloudSave(); CST.pulled = false;
-  cloudReq('/itch/logout', {sk}).catch(() => {});
-  cloudNote('已解除綁定。這台電腦的紀錄保留，之後的進度只存在這台電腦。');
+  clearTimeout(CST.timer); CLOUD = null; FB.tok = ''; cloudSave(); CST.pulled = false;
+  cloudNote('已登出。這台電腦的紀錄保留，之後的進度只存在這台電腦。');
+  if (phase === 'lobby') showLobby();
 }
 
-// ---------- settings card ----------
+// ---------- lobby ----------
+const authNav = () => CLOUD ? `<div class="sub uin">${glyph('rep', 14, C.gold)}itch.io：${esc(CLOUD.name)}</div>` : '';
 function cloudCard() {
   const msg = CST.msg ? `<p class="cmsg ${CST.err ? 'e' : ''}">${CST.msg}</p>` : '';
-  const lnk = CST.link ? `<p class="cmsg"><a href="${CST.link}" target="_blank" rel="noopener">開啟 itch.io 授權頁</a></p>` : '';
+  const lnk = CST.link ? `<p class="cmsg"><a href="${CST.link}" target="_blank" rel="noopener">開啟 itch.io 登入頁</a></p>` : '';
   const body = CLOUD
-    ? `<p>已綁定 <b>${CLOUD.name.replace(/[<>&]/g, '')}</b>。聲望、外觀、軍階與戰績會自動存到伺服器，在別台電腦綁定同一個帳號就能接著玩。${CLOUD.at ? `<br><small>上次同步 ${new Date(CLOUD.at).toLocaleString()}</small>` : ''}</p>
-       <div class="bar"><button type="button" class="go alt" id="cSync">立即同步</button><button type="button" class="go alt" id="cOut">解除綁定</button></div>`
-    : `<p>綁定後，聲望、外觀、軍階與戰績會存到伺服器上你的 itch.io 帳號底下，換電腦或清除瀏覽器資料都不會遺失。只會讀取 itch.io 的公開名稱，不會取得密碼或購買紀錄。</p>
-       <div class="bar"><button type="button" class="go" id="cLink" ${CST.busy ? 'disabled' : ''}>${CST.busy ? '等待授權中…' : '用 itch.io 帳號綁定'}</button></div>`;
-  return `<div class="ccard"><div class="ch">${glyph('rep', 22, C.gold)}<b>itch.io 帳號紀錄</b></div>${body}${msg}${lnk}</div>`;
+    ? `<p>已登入 <b>${esc(CLOUD.name)}</b>。聲望、外觀、軍階與戰績會自動存到雲端，在別台電腦用同一個 itch.io 帳號登入就能接著玩。${CLOUD.at ? `<br><small>上次同步 ${new Date(CLOUD.at).toLocaleString()}</small>` : ''}</p>
+       <div class="bar"><button type="button" class="go alt" id="cSync">立即同步</button><button type="button" class="go alt" id="cOut">登出</button></div>`
+    : `<p>用 itch.io 帳號登入後，聲望、外觀、軍階與戰績會存到雲端（Firebase），換電腦或清除瀏覽器資料都不會遺失。只會讀取 itch.io 的公開名稱，不會取得密碼或購買紀錄。</p>
+       <div class="bar"><button type="button" class="go" id="cLink" ${CST.busy ? 'disabled' : ''}>${CST.busy ? '等待登入中…' : '用 itch.io 登入'}</button></div>`;
+  return `<div class="ccard"><div class="ch">${glyph('rep', 22, C.gold)}<b>itch.io 帳號</b></div>${body}${msg}${lnk}</div>`;
 }
 function bindCloudCard(P2) {
   const b = (id, fn) => { const e = P2.querySelector('#' + id); if (e) e.onclick = fn; };
