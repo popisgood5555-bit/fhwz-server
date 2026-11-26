@@ -548,6 +548,13 @@ function mkBuilding(type, team) {
       add(g, CY(2.1, 2.1, 0.04, 28), MT('#241A36', {op:0.75}), 0, 0.03, 0);
       for (let i = 0; i < 8; i++) { const a = i/8*Math.PI*2; add(g, CO(0.1, 0.5, 4), metal(P.steelD), Math.sin(a)*1.7, 0.2, Math.cos(a)*1.7); }
       break;
+    case 'rune':
+      add(g, CY(3.1, 3.3, 0.35, 8), rockM(), 0, 0.17, 0, 0, Math.PI/8, 0, true); add(g, CY(2.5, 2.6, 0.12, 8), MT(P.stone), 0, 0.4, 0, 0, Math.PI/8);
+      add(g, TO(2.15, 0.07, Math.PI*2, 32), glow(TL, 0.9), 0, 0.48, 0, Math.PI/2); add(g, TO(1.2, 0.05, Math.PI*2, 24), glow('#7FE8D0', 0.9), 0, 0.48, 0, Math.PI/2);
+      for (let i = 0; i < 6; i++) { const a = i/6*Math.PI*2; add(g, B(2.2, 0.03, 0.08), glow('#7FE8D0', 0.7), Math.sin(a)*0.55, 0.47, Math.cos(a)*0.55, 0, a, 0); }
+      for (let i = 0; i < 6; i++) { const a = i/6*Math.PI*2 + Math.PI/6; const st = add(g, B(0.55, 1.9 + (i % 2)*0.5, 0.42), MT(P.stoneD), Math.sin(a)*2.75, 1.1 + (i % 2)*0.25, Math.cos(a)*2.75, 0.06*(i % 3 - 1), a, 0.05, true); add(g, B(0.08, 0.7, 0.02), glow(TL, 0.8), Math.sin(a)*2.52, 1.3, Math.cos(a)*2.52, 0, a, 0); }
+      { const c = add(g, OC(0.55), glow(TL, 0.9), 0, 2.4, 0); c.scale.set(1, 1.6, 1); add(g, TO(0.9, 0.035, Math.PI*2, 20), glow('#7FE8D0', 0.8), 0, 2.4, 0, Math.PI/2); g.userData.spin = c; }
+      break;
     case 'supply':
       add(g, B(1.3, 1.3, 1.3), wd, -1.3, 0.65, 0, 0, 0.2, 0, true); add(g, B(1.1, 1.1, 1.1), wd, -0.1, 0.55, 0.9, 0, -0.3); add(g, B(1.0, 1.0, 1.0), wd, -1.2, 1.8, 0.1, 0, 0.6);
       for (const [x, z] of [[1.3, -0.8], [1.9, 0.3], [0.9, 0.4]]) { add(g, LA('barrel', [[0.4, 0], [0.47, 0.25], [0.5, 0.5], [0.47, 0.75], [0.4, 1.0]], 12), wd, x, 0, z, 0, 0, 0, true); for (const y of [0.2, 0.8]) add(g, CY(0.48, 0.48, 0.05, 12), metal(P.steelD), x, y, z); }
@@ -570,6 +577,20 @@ function mkGranary() {
   for (let i = 0; i < 4; i++) add(g, SP(0.4, 8, 6), MT(P.cloth), 1.2 + i*0.35, 0.3, 2.2 - (i % 2)*0.4).scale.set(1, 0.7, 0.9);
   const flag = piv(g, -3.6, 0, 2.2); add(flag, CY(0.06, 0.06, 5, 6), MT(P.woodD), 0, 2.5, 0); const fm = add(flag, PL(1.6, 1.0), MT('#CFC6B2', {side:1}), 0.8, 4.4, 0); fm.material = fm.material.clone();
   g.userData.ownerMats = [fm.material];
+  return g;
+}
+function mkFlagPt() {
+  // conquest flag: a stone dais on the river crossing with a tall standard that takes the owner's colour
+  const g = new THREE.Group();
+  add(g, CY(5.6, 6.0, 0.35, 24), rockM(), 0, 0.17, 0, 0, 0, 0, true);
+  add(g, CY(4.6, 4.8, 0.12, 24), MT(P.stone), 0, 0.38, 0);
+  add(g, CY(0.85, 1.05, 0.9, 8), metal(P.steelD), 0, 0.85, 0, 0, 0, 0, true);
+  add(g, CY(0.13, 0.13, 9, 8), MT(P.woodD), 0, 4.8, 0, 0, 0, 0, true);
+  add(g, SP(0.3, 10, 8), metal(P.gold || '#C9A24A'), 0, 9.4, 0);
+  const cl = add(g, B(3.4, 2.1, 0.06), MT('#CFC6B2', {side:1}), 1.75, 7.8, 0); cl.material = cl.material.clone();
+  const tail = add(g, B(1.4, 1.0, 0.05), MT('#CFC6B2', {side:1}), 4.1, 7.4, 0); tail.material = cl.material;
+  const rn = add(g, TO(4.2, 0.08, Math.PI*2, 48), glow('#CFC6B2', 0.8), 0, 0.46, 0, Math.PI/2); rn.material = rn.material.clone();
+  g.userData.ownerMats = [cl.material, rn.material];
   return g;
 }
 function mkBeacon() {
@@ -832,8 +853,10 @@ function artShot(A, name) {
   const a = A.mixer.clipAction(clip);
   if (A.os && A.os.a !== a) A.os.a.stop();
   a.reset(); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.enabled = true; a.setEffectiveWeight(0); a.play();
-  A.os = {a, t:0, dur:clip.duration*0.85};
+  A.os = {a, t:0, dur:clip.duration*(ACTCLIP.has(name) ? 0.98 : 0.85)};
 }
+// authored commander clips (v1.5) start and end on the idle pose, so they play to the end
+const ACTCLIP = new Set(['order', 'e_valen', 'v_raise', 'v_slam', 'e_sylvie', 's_up', 'e_orion', 'o_call', 'o_push', 'e_gru', 'g_roar', 'g_point', 'e_brand', 'b_throw', 'b_flex', 'e_raven', 'lunge', 'r_crow']);
 function artAnim(A, moving, t, atk, cmd, spd) {
   const dt = A.lastT === null ? 0 : Math.max(0, Math.min(0.1, t - A.lastT)); A.lastT = t;
   if (A.dead) { A.mixer.update(dt); return; }
@@ -842,7 +865,8 @@ function artAnim(A, moving, t, atk, cmd, spd) {
   const r = A.role, L = A.loco;
   const newAtk = atk > A.lastAtk + 0.02; A.lastAtk = atk;
   const newCmd = cmd > A.lastCmd + 0.02; A.lastCmd = cmd;
-  if (newCmd) artShot(A, 'cast');
+  if (A.nextAct) { const n = A.nextAct; A.nextAct = null; if (ART.clips[n] && !(n === 'order' && A.mvOn)) artShot(A, n); else if (!ART.clips[n]) artShot(A, 'cast'); }
+  else if (newCmd && !A.os) artShot(A, 'cast');
   else if (newAtk) artShot(A, r === 'bow' ? 'shoot' : r === 'caster' || r === 'cmd' ? 'cast' : 'attack');
   // speed with hysteresis so a squad settling into formation does not flicker between run and idle
   const sp = spd === undefined ? (moving ? 6 : 0) : spd;
@@ -1000,7 +1024,7 @@ function artScenery(scene) {
   }
 }
 
-const GD = {"G": {"valen": "<path d=\"M24 5 L39 10 V22 C39 32 32.5 38.5 24 43 C15.5 38.5 9 32 9 22 V10 Z\"></path><path d=\"M16.5 31 V18 H19.5 V21 H22.5 V18 H25.5 V21 H28.5 V18 H31.5 V31 Z\"></path><path d=\"M22 31 V27.5 A2 2 0 0 1 26 27.5 V31\"></path>", "sylvie": "<path d=\"M15 6 Q36 24 15 42\"></path><path class=\"t\" d=\"M15 6 L15 42\"></path><path d=\"M7 24 H41\"></path><path d=\"M35 18.5 L41 24 L35 29.5\"></path><path d=\"M7 24 L4 20.5 M7 24 L4 27.5 M11 24 L8 20.5 M11 24 L8 27.5\"></path>", "orion": "<path d=\"M12 43 L28.5 17.5\"></path><circle cx=\"32\" cy=\"12\" r=\"6.5\"></circle><path class=\"t\" d=\"M32 8.5 V15.5 M28.5 12 H35.5\"></path><path class=\"f\" d=\"M40 25 L41.6 28.4 L45 30 L41.6 31.6 L40 35 L38.4 31.6 L35 30 L38.4 28.4 Z\"></path><path class=\"f\" d=\"M10 9 L11.1 11.9 L14 13 L11.1 14.1 L10 17 L8.9 14.1 L6 13 L8.9 11.9 Z\"></path>", "gru": "<path d=\"M12 8 Q22 22 14 41\"></path><path d=\"M22 5 Q32 22 23.5 43\"></path><path d=\"M32 8 Q42 22 33 41\"></path>", "brand": "<path d=\"M11 8 H37 V19 H11 Z\"></path><path d=\"M24 19 V43\"></path><path class=\"t\" d=\"M20.5 34.5 H27.5 M20.5 38.5 H27.5 M16 8 V19 M32 8 V19\"></path>", "raven": "<path d=\"M5 25 Q24 8 43 25 Q24 42 5 25 Z\"></path><circle cx=\"24\" cy=\"25\" r=\"6.5\"></circle><circle class=\"f\" cx=\"24\" cy=\"25\" r=\"2.8\"></circle><path class=\"t\" d=\"M12 15 L9 10.5 M24 10.5 V5 M36 15 L39 10.5\"></path>", "pike": "<path d=\"M17 43 V15 M31 43 V15\"></path><path d=\"M17 5 L20.5 15 H13.5 Z M31 5 L34.5 15 H27.5 Z\"></path><path class=\"t\" d=\"M12 30 H36\"></path>", "shield": "<circle cx=\"24\" cy=\"24\" r=\"16.5\"></circle><circle class=\"t\" cx=\"24\" cy=\"24\" r=\"10.5\"></circle><circle class=\"f\" cx=\"24\" cy=\"24\" r=\"4.5\"></circle><circle class=\"f\" cx=\"24\" cy=\"10.8\" r=\"1.4\"></circle><circle class=\"f\" cx=\"37.2\" cy=\"24\" r=\"1.4\"></circle><circle class=\"f\" cx=\"24\" cy=\"37.2\" r=\"1.4\"></circle><circle class=\"f\" cx=\"10.8\" cy=\"24\" r=\"1.4\"></circle>", "cav": "<path d=\"M13 7 V23 A11 11 0 0 0 35 23 V7\"></path><path d=\"M9.5 7 H16.5 M31.5 7 H38.5\"></path><path class=\"t\" d=\"M5 39 H14 M9 44 H22 M30 41 H43\"></path>", "archer": "<path d=\"M9 39 L39 9 M9 9 L39 39\"></path><path d=\"M39 9 L31.5 10 M39 9 L38 16.5 M9 9 L16.5 10 M9 9 L10 16.5\"></path><path class=\"t\" d=\"M9 39 L5.5 35.5 M9 39 L12.5 42.5 M39 39 L42.5 35.5 M39 39 L35.5 42.5\"></path>", "mage": "<circle class=\"t dash\" cx=\"24\" cy=\"24\" r=\"18.5\"></circle><path d=\"M24 8 L36 24 L24 40 L12 24 Z\"></path><path class=\"t\" d=\"M24 15 V33 M17 24 H31\"></path><circle class=\"f\" cx=\"24\" cy=\"24\" r=\"3.4\"></circle>", "scout": "<path d=\"M24 4 L28.5 27 H19.5 Z\"></path><path d=\"M14.5 27 H33.5\"></path><path d=\"M24 27 V36.5\"></path><circle cx=\"24\" cy=\"40.5\" r=\"3\"></circle><path class=\"t\" d=\"M24 10 V23\"></path>", "griffin": "<path d=\"M5 35 C9 19 23 8 43 6 C39 11 38 14 39 17 C34 18 32 21 33 24.5 C28 25.5 26 28.5 27 32.5 C19 32.5 12 33.5 5 35 Z\"></path><path class=\"t\" d=\"M13 30 C20 22 29 15.5 39 11.5 M20 31.5 C24 27 28 23.5 33 21\"></path><path class=\"t\" d=\"M12 41 L16 37 M18 44 L21 39\"></path>", "siege": "<path d=\"M5 37 H43\"></path><circle cx=\"13\" cy=\"38\" r=\"4.5\"></circle><circle cx=\"35\" cy=\"38\" r=\"4.5\"></circle><path d=\"M15 31 L36.5 12\"></path><circle class=\"f\" cx=\"39\" cy=\"9.8\" r=\"3.6\"></circle><path d=\"M17 37 L25 22 L33 37\"></path>", "priest": "<path d=\"M14 15 H34 Q34 28 24 30 Q14 28 14 15 Z\"></path><path d=\"M24 30 V38\"></path><path d=\"M16 41 Q24 36 32 41\"></path><path class=\"t\" d=\"M24 3 V8 M13.5 6 L16.5 10 M34.5 6 L31.5 10 M8 13 L11.5 14.5 M40 13 L36.5 14.5\"></path><circle class=\"f\" cx=\"24\" cy=\"21\" r=\"2.6\"></circle>", "trench": "<path d=\"M3 22 H12 L16.5 34 H31.5 L36 22 H45\"></path><path d=\"M5 22 Q5 16.5 9.5 16.5 Q14 16.5 14 22 M34 22 Q34 16.5 38.5 16.5 Q43 16.5 43 22\"></path><path d=\"M19.5 34 Q19.5 27 24 27 Q28.5 27 28.5 34\"></path><path class=\"t\" d=\"M7 42 L11 38 M17 42 L21 38 M27 42 L31 38 M37 42 L41 38\"></path>", "arrowtower": "<path d=\"M16 43 L18.5 19 H29.5 L32 43 Z\"></path><path d=\"M14 19 V8.5 H18 V12.5 H22 V8.5 H26 V12.5 H30 V8.5 H34 V19 Z\"></path><path d=\"M24 24.5 V33\"></path><path class=\"t\" d=\"M21 28.5 H27\"></path>", "cheval": "<path d=\"M4 26 H44\"></path><path d=\"M9 12 L17 40 M17 12 L9 40 M20 12 L28 40 M28 12 L20 40 M31 12 L39 40 M39 12 L31 40\"></path>", "barracks": "<path d=\"M5 40 L24 11 L43 40 Z\"></path><path d=\"M24 40 V26 L17.5 40\"></path><path d=\"M24 11 V3.5\"></path><path class=\"f\" d=\"M24 3.5 L33 6.2 L24 9 Z\"></path>", "obelisk": "<path d=\"M19.5 41 L21.5 13 L24 5.5 L26.5 13 L28.5 41 Z\"></path><path class=\"f\" d=\"M24 19 L26.2 24 L24 29 L21.8 24 Z\"></path><path d=\"M14 42 H34\"></path><path class=\"t\" d=\"M10 16 L14.5 18.5 M38 16 L33.5 18.5 M7 27 H13 M41 27 H35\"></path>", "banner": "<path d=\"M13 44 V5\"></path><path d=\"M13 8 H38 L32.5 15.5 L38 23 H13\"></path><circle class=\"f\" cx=\"22.5\" cy=\"15.5\" r=\"3.2\"></circle><path d=\"M8.5 44 H17.5\"></path>", "watch": "<path d=\"M15 43 L19 20 M33 43 L29 20\"></path><path d=\"M12.5 20 H35.5\"></path><path d=\"M12.5 20 L24 9 L35.5 20\"></path><path class=\"t\" d=\"M17.5 33 H30.5 M18.3 27 L30 33 M29.7 27 L18 33\"></path><path class=\"t\" d=\"M39 7 Q42.5 11 39 15 M42 4 Q47.5 11 42 18\"></path>", "trap": "<circle class=\"t dash\" cx=\"24\" cy=\"24\" r=\"19\"></circle><path d=\"M9.5 29 H38.5\"></path><path d=\"M9.5 29 L13 20 L16.5 29 L20 20 L23.5 29 L27 20 L30.5 29 L34 20 L38.5 29\"></path><circle class=\"f\" cx=\"24\" cy=\"35.5\" r=\"2\"></circle>", "supply": "<path d=\"M8 20 H40 V41 H8 Z\"></path><path d=\"M8 20 L13 12 H35 L40 20\"></path><path d=\"M24 25 V36 M18.5 30.5 H29.5\"></path>", "t1": "<path d=\"M15.5 43 L18 19 H30 L32.5 43 Z\"></path><path d=\"M14 19 V9 H18 V12.5 H22 V9 H26 V12.5 H30 V9 H34 V19 Z\"></path><path d=\"M21 31 H27\"></path>", "t2": "<path d=\"M15.5 43 L18 19 H30 L32.5 43 Z\"></path><path d=\"M14 19 V9 H18 V12.5 H22 V9 H26 V12.5 H30 V9 H34 V19 Z\"></path><path d=\"M21 27 H27 M21 34 H27\"></path>", "t3": "<path d=\"M15.5 43 L18 19 H30 L32.5 43 Z\"></path><path d=\"M14 19 V9 H18 V12.5 H22 V9 H26 V12.5 H30 V9 H34 V19 Z\"></path><path d=\"M21 25 H27 M21 30.5 H27 M21 36 H27\"></path>", "core": "<path class=\"f\" d=\"M13 15 L16.5 5.5 L20.5 11 L24 3.5 L27.5 11 L31.5 5.5 L35 15 Z\"></path><path d=\"M11 43 V19 H37 V43\"></path><path d=\"M7 43 H41\"></path><path d=\"M20 43 V35 A4 4 0 0 1 28 35 V43\"></path><path class=\"t\" d=\"M16 25 V29 M32 25 V29\"></path>", "dragon": "<path d=\"M24 4 C31 12 37 18 37 28.5 C37 37 31 43.5 24 43.5 C17 43.5 11 37 11 28.5 C11 22.5 14.5 18 17.5 14 C18.5 19.5 21 22 23.5 22 C21.5 16 21.5 10 24 4 Z\"></path><path class=\"f\" d=\"M24 23.5 Q27.5 29 24 35 Q20.5 29 24 23.5 Z\"></path>", "titan": "<path d=\"M10 14 L18 6 H30 L38 14 L40.5 34 L30.5 43 H17.5 L7.5 34 Z\"></path><path d=\"M16.5 22.5 H21.5 M26.5 22.5 H31.5\"></path><path d=\"M18.5 33 H29.5\"></path><path class=\"t\" d=\"M24 6 L21.5 12.5 L25.5 16\"></path>", "advance": "<path d=\"M12 27 L24 15 L36 27\"></path><path d=\"M12 37 L24 25 L36 37\"></path>", "hold": "<path d=\"M18 38 V7\"></path><path d=\"M18 9 H35 L30.5 15.5 L35 22 H18\"></path><path d=\"M7 41 Q24 32 41 41\"></path>", "rally": "<circle class=\"f\" cx=\"24\" cy=\"24\" r=\"4.2\"></circle><path d=\"M6 6 L16.5 16.5 M16.5 9.5 V16.5 H9.5 M42 6 L31.5 16.5 M38.5 16.5 H31.5 V9.5 M6 42 L16.5 31.5 M9.5 31.5 H16.5 V38.5 M42 42 L31.5 31.5 M31.5 38.5 V31.5 H38.5\"></path>", "retreat": "<path d=\"M34 41 V20 A10 10 0 0 0 14 20 V31\"></path><path d=\"M7.5 25 L14 32 L20.5 25\"></path>", "charge": "<path d=\"M7 24 H33\"></path><path class=\"f\" d=\"M29 15.5 L43 24 L29 32.5 Z\"></path><path class=\"t\" d=\"M5 14 H19 M5 34 H19\"></path>", "spread": "<circle class=\"f\" cx=\"24\" cy=\"24\" r=\"3.2\"></circle><path d=\"M18.5 18.5 L7 7 M7 14.5 V7 H14.5 M29.5 18.5 L41 7 M33.5 7 H41 V14.5 M18.5 29.5 L7 41 M7 33.5 V41 H14.5 M29.5 29.5 L41 41 M41 33.5 V41 H33.5\"></path>", "focus": "<circle cx=\"24\" cy=\"24\" r=\"13\"></circle><path d=\"M24 4 V14 M24 34 V44 M4 24 H14 M34 24 H44\"></path><circle class=\"f\" cx=\"24\" cy=\"24\" r=\"2.8\"></circle>", "ambush": "<path d=\"M5 39 Q4 31 11 30 Q10 22 18 22 Q20 14 27.5 15.5 Q34.5 15 35 23 Q42 23.5 41.5 30.5 Q45 33 43 39 Z\"></path><path d=\"M16 31 Q24 25.5 32 31 Q24 36 16 31 Z\"></path><circle class=\"f\" cx=\"24\" cy=\"31\" r=\"2\"></circle>", "move": "<path class=\"t dash\" d=\"M7 41 Q10 27 24 26\"></path><path d=\"M21 21.5 L26 26 L21 30.5\"></path><path d=\"M31 41 V8\"></path><path d=\"M31 9.5 H43 L39.5 15 L43 20.5 H31\"></path><path d=\"M26 41 H36\"></path>", "deploy": "<path d=\"M5 12 L17 7.5 L31 12 L43 7.5 V36 L31 40.5 L17 36 L5 40.5 Z\"></path><path class=\"t\" d=\"M17 7.5 V36 M31 12 V40.5\"></path><path class=\"f\" d=\"M24 16 L28.5 22 L24 28 L19.5 22 Z\"></path><path class=\"t dash\" d=\"M10 33 Q14 26 20 24\"></path>", "f_square": "<circle class=\"f\" cx=\"14\" cy=\"14\" r=\"3\"></circle><circle class=\"f\" cx=\"24\" cy=\"14\" r=\"3\"></circle><circle class=\"f\" cx=\"34\" cy=\"14\" r=\"3\"></circle><circle class=\"f\" cx=\"14\" cy=\"24\" r=\"3\"></circle><circle class=\"f\" cx=\"24\" cy=\"24\" r=\"3\"></circle><circle class=\"f\" cx=\"34\" cy=\"24\" r=\"3\"></circle><circle class=\"f\" cx=\"14\" cy=\"34\" r=\"3\"></circle><circle class=\"f\" cx=\"24\" cy=\"34\" r=\"3\"></circle><circle class=\"f\" cx=\"34\" cy=\"34\" r=\"3\"></circle><path class=\"t\" d=\"M8 6 H40\"></path>", "f_line": "<circle class=\"f\" cx=\"8\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"16\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"24\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"32\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"40\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"8\" cy=\"31\" r=\"2.7\"></circle><circle class=\"f\" cx=\"16\" cy=\"31\" r=\"2.7\"></circle><circle class=\"f\" cx=\"24\" cy=\"31\" r=\"2.7\"></circle><circle class=\"f\" cx=\"32\" cy=\"31\" r=\"2.7\"></circle><circle class=\"f\" cx=\"40\" cy=\"31\" r=\"2.7\"></circle><path d=\"M17 13 L24 8 L31 13\"></path>", "f_wedge": "<circle class=\"f\" cx=\"24\" cy=\"10\" r=\"2.8\"></circle><circle class=\"f\" cx=\"18\" cy=\"20\" r=\"2.8\"></circle><circle class=\"f\" cx=\"30\" cy=\"20\" r=\"2.8\"></circle><circle class=\"f\" cx=\"12\" cy=\"30\" r=\"2.8\"></circle><circle class=\"f\" cx=\"24\" cy=\"30\" r=\"2.8\"></circle><circle class=\"f\" cx=\"36\" cy=\"30\" r=\"2.8\"></circle><circle class=\"f\" cx=\"6\" cy=\"40\" r=\"2.8\"></circle><circle class=\"f\" cx=\"18\" cy=\"40\" r=\"2.8\"></circle><circle class=\"f\" cx=\"30\" cy=\"40\" r=\"2.8\"></circle><circle class=\"f\" cx=\"42\" cy=\"40\" r=\"2.8\"></circle>", "f_circle": "<circle class=\"f\" cx=\"24.0\" cy=\"9.0\" r=\"2.8\"></circle><circle class=\"f\" cx=\"34.6\" cy=\"13.4\" r=\"2.8\"></circle><circle class=\"f\" cx=\"39.0\" cy=\"24.0\" r=\"2.8\"></circle><circle class=\"f\" cx=\"34.6\" cy=\"34.6\" r=\"2.8\"></circle><circle class=\"f\" cx=\"24.0\" cy=\"39.0\" r=\"2.8\"></circle><circle class=\"f\" cx=\"13.4\" cy=\"34.6\" r=\"2.8\"></circle><circle class=\"f\" cx=\"9.0\" cy=\"24.0\" r=\"2.8\"></circle><circle class=\"f\" cx=\"13.4\" cy=\"13.4\" r=\"2.8\"></circle><circle class=\"t\" cx=\"24\" cy=\"24\" r=\"5\"></circle>", "f_loose": "<circle class=\"f\" cx=\"9\" cy=\"10\" r=\"2.6\"></circle><circle class=\"f\" cx=\"27\" cy=\"7\" r=\"2.6\"></circle><circle class=\"f\" cx=\"41\" cy=\"15\" r=\"2.6\"></circle><circle class=\"f\" cx=\"17\" cy=\"23\" r=\"2.6\"></circle><circle class=\"f\" cx=\"35\" cy=\"28\" r=\"2.6\"></circle><circle class=\"f\" cx=\"8\" cy=\"34\" r=\"2.6\"></circle><circle class=\"f\" cx=\"24\" cy=\"39\" r=\"2.6\"></circle><circle class=\"f\" cx=\"41\" cy=\"41\" r=\"2.6\"></circle>", "gold": "<ellipse cx=\"24\" cy=\"13\" rx=\"13\" ry=\"5\"></ellipse><path d=\"M11 13 V21 A13 5 0 0 0 37 21 V13\"></path><path d=\"M11 21 V29 A13 5 0 0 0 37 29 V21\"></path><path d=\"M11 29 V37 A13 5 0 0 0 37 37 V29\"></path>", "spyglass": "<path d=\"M6 32 L26 12 L33 19 L13 39 Z\"></path><path d=\"M26 12 L30.5 7.5 L37.5 14.5 L33 19\"></path><path class=\"t\" d=\"M15.5 37 L12 45 M20 32.5 L25 45\"></path>", "unknown": "<path class=\"t dash\" d=\"M24 4 L40 9.5 V22 C40 32.5 33 39 24 44 C15 39 8 32.5 8 22 V9.5 Z\"></path><path d=\"M19 18 Q19 12.5 24 12.5 Q29 12.5 29 18 Q29 22.5 24 24.5 V28.5\"></path><circle class=\"f\" cx=\"24\" cy=\"34\" r=\"2\"></circle>", "build": "<path d=\"M5 30 H24 V41 H5 Z\"></path><path class=\"t\" d=\"M14.5 30 V35.5 M5 35.5 H24 M9.5 35.5 V41 M19.5 35.5 V41\"></path><path d=\"M28 39 L38 21\"></path><path d=\"M32.5 13 L44 19.5 L41 24.5 L29.5 18 Z\"></path>", "reform": "<path d=\"M9 21 A15.5 15.5 0 0 1 37 14\"></path><path d=\"M38 6.5 V14.5 H30\"></path><path d=\"M39 27 A15.5 15.5 0 0 1 11 34\"></path><path d=\"M10 41.5 V33.5 H18\"></path><path class=\"f\" d=\"M24 17 L30 19.5 V24 C30 28 27.5 30.5 24 32 C20.5 30.5 18 28 18 24 V19.5 Z\"></path>", "voice": "<path d=\"M7 19 H14 L24 11 V37 L14 29 H7 Z\"></path><path d=\"M30 18 Q34.5 24 30 30 M35.5 13 Q43 24 35.5 35\"></path>", "menu": "<path d=\"M10 14 H38 M10 24 H38 M10 34 H38\"></path>", "exit": "<path d=\"M27 8 H11 V40 H27\"></path><path d=\"M21 24 H42\"></path><path d=\"M35 17 L42 24 L35 31\"></path>", "demolish": "<path d=\"M5 30 H25 V42 H5 Z\"></path><path class=\"t\" d=\"M14 30 L17.5 35 L13 38 L15.5 42\"></path><path d=\"M30 41 L39.5 23\"></path><path d=\"M33.5 15 L45 21.5 L42 26.5 L30.5 20 Z\"></path><path class=\"t\" d=\"M26.5 26 L23 22.5 M29 21.5 L27.5 17\"></path>", "troops": "<path d=\"M12 41 V21 Q12 8 24 8 Q36 8 36 21 V41 Z\"></path><path d=\"M16 23 H32\"></path><path class=\"t\" d=\"M24 8 V19 M24 27 V41 M19.5 31 V35 M28.5 31 V35\"></path>", "armory": "<path d=\"M8 22 H34 Q34 28 28 30 V34 H14 V30 Q8 28 8 22 Z\"></path><path d=\"M12 34 H30 V40 H12 Z\"></path><path d=\"M34 22 H42 Q42 26 37 27\"></path><path d=\"M30 6 L40 16\"></path><path d=\"M26 10 L34 2 L38 6 L30 14 Z\"></path>", "upgrade": "<path d=\"M10 40 H38\"></path><path d=\"M14 30 L24 20 L34 30\"></path><path d=\"M14 20 L24 10 L34 20\"></path>", "lvl": "<path d=\"M24 5 L29 17 L42 18 L32 27 L35 40 L24 33 L13 40 L16 27 L6 18 L19 17 Z\"></path>", "e_valen": "<path d=\"M24 10 L36 14 V24 C36 32 31 37 24 40 C17 37 12 32 12 24 V14 Z\"></path><path class=\"t\" d=\"M24 2 V6 M9 7 L12 10 M39 7 L36 10 M3 21 H7 M41 21 H45\"></path><path d=\"M19 25 L23 29 L30 20\"></path>", "e_sylvie": "<path d=\"M4 34 L42 12\"></path><path d=\"M35 10 L42 12 L39 18\"></path><path class=\"t\" d=\"M14 18 V36 M22 14 V32 M30 10 V28\"></path><path d=\"M4 34 L1 30 M4 34 L8 37\"></path>", "e_orion": "<circle cx=\"30\" cy=\"31\" r=\"9\"></circle><path d=\"M24 24 L8 8 M30 22 L20 5 M22 30 L5 20\"></path><path class=\"t\" d=\"M27 29 A3 3 0 0 1 32 27\"></path><path d=\"M10 43 H44\"></path>", "e_gru": "<path d=\"M12 22 Q12 10 24 10 Q36 10 36 22 Q36 34 24 40 Q12 34 12 22 Z\"></path><path d=\"M12 14 L8 6 L16 10 M36 14 L40 6 L32 10\"></path><path class=\"t\" d=\"M18 22 H21 M27 22 H30\"></path><path d=\"M20 31 L24 34 L28 31\"></path>", "e_brand": "<path d=\"M8 30 L30 16 L35 24 L13 38 Z\"></path><circle cx=\"15\" cy=\"38\" r=\"5\"></circle><circle cx=\"30\" cy=\"34\" r=\"5\"></circle><path class=\"t\" d=\"M36 13 L41 9 M38 19 L44 18 M33 10 L34 4\"></path>", "e_raven": "<path d=\"M30 6 A16 16 0 1 0 42 30 A12 12 0 1 1 30 6 Z\"></path><path d=\"M10 42 L20 32 M16 44 L24 36\"></path><path class=\"t\" d=\"M8 36 L12 40 M14 30 L18 34\"></path>", "recruit": "<path d=\"M10 8 H34 Q38 8 38 12 V36 Q38 40 34 40 H14\"></path><path d=\"M10 8 Q6 8 6 12 V14 H14 V12 Q14 8 10 8\"></path><path class=\"t\" d=\"M16 16 H32 M16 22 H32 M16 28 H26\"></path><circle cx=\"31\" cy=\"34\" r=\"6\"></circle><path d=\"M29 34 L31 36 L34 32\"></path>", "rep": "<path d=\"M24 40 C12 36 8 26 10 14\"></path><path d=\"M24 40 C36 36 40 26 38 14\"></path><path class=\"t\" d=\"M10 20 L15 18 M10 27 L16 26 M13 33 L18 31 M38 20 L33 18 M38 27 L32 26 M35 33 L30 31\"></path><path d=\"M24 10 L27 17 L34 17 L28.5 21.5 L30.5 29 L24 24.5 L17.5 29 L19.5 21.5 L14 17 L21 17 Z\"></path>", "ping": "<path d=\"M24 42 L14 24 A11 11 0 1 1 34 24 Z\"></path><circle cx=\"24\" cy=\"18\" r=\"4\"></circle><path class=\"t\" d=\"M6 42 H42\"></path>", "talent": "<path d=\"M24 42 V20\"></path><path d=\"M24 26 L14 18 M24 22 L34 14 M24 32 L33 26\"></path><circle cx=\"14\" cy=\"16\" r=\"4\"></circle><circle cx=\"34\" cy=\"12\" r=\"4\"></circle><circle cx=\"35\" cy=\"25\" r=\"3.5\"></circle><circle cx=\"24\" cy=\"16\" r=\"4.5\"></circle>", "wx_clear": "<circle cx=\"24\" cy=\"24\" r=\"8\"></circle><path class=\"t\" d=\"M24 6 V11 M24 37 V42 M6 24 H11 M37 24 H42 M11 11 L14.5 14.5 M33.5 33.5 L37 37 M11 37 L14.5 33.5 M33.5 14.5 L37 11\"></path>", "wx_rain": "<path d=\"M12 28 A8 8 0 0 1 14 12 A10 10 0 0 1 33 12 A7 7 0 0 1 36 28 Z\"></path><path class=\"t\" d=\"M15 33 L12 40 M23 33 L20 40 M31 33 L28 40\"></path>", "wx_fog": "<path d=\"M8 16 H40 M5 24 H35 M12 32 H43 M8 40 H30\"></path>", "wx_night": "<path d=\"M30 8 A16 16 0 1 0 40 30 A12 12 0 1 1 30 8 Z\"></path><path class=\"t\" d=\"M12 10 L12 14 M10 12 L14 12 M40 12 L40 15 M38.5 13.5 L41.5 13.5\"></path>", "camp": "<path d=\"M6 40 L24 10 L42 40 Z\"></path><path d=\"M24 10 V40\"></path><path d=\"M18 40 L24 30 L30 40\"></path><path class=\"t\" d=\"M24 10 L30 5\"></path>", "templar": "<path d=\"M24 6 L35 10 V22 C35 31 30 37 24 41 C18 37 13 31 13 22 V10 Z\"></path><path d=\"M24 13 V33 M17 20 H31\"></path><circle class=\"t\" cx=\"24\" cy=\"4\" r=\"0.1\"></circle><path class=\"t\" d=\"M16 4 Q24 0 32 4\"></path>", "longbow": "<path d=\"M14 4 Q36 24 14 44\"></path><path class=\"t\" d=\"M14 4 V44\"></path><path d=\"M10 24 H42\"></path><path d=\"M42 24 L36 20 M42 24 L36 28\"></path><path class=\"t\" d=\"M10 24 L6 20 M10 24 L6 28\"></path>", "revenant": "<path d=\"M15 20 Q15 7 24 7 Q33 7 33 20 V26 H29 V31 H19 V26 H15 Z\"></path><circle class=\"f\" cx=\"20\" cy=\"18\" r=\"2.6\"></circle><circle class=\"f\" cx=\"28\" cy=\"18\" r=\"2.6\"></circle><path class=\"t\" d=\"M22 31 V35 M26 31 V35\"></path><path d=\"M12 41 L36 41 M16 37 L32 45 M32 37 L16 45\"></path>", "necro": "<path d=\"M12 42 L36 6\"></path><circle cx=\"36\" cy=\"8\" r=\"4\"></circle><path d=\"M20 28 Q14 22 18 14 Q22 20 28 18\"></path><circle class=\"f\" cx=\"22\" cy=\"21\" r=\"1.6\"></circle><path class=\"t\" d=\"M26 30 Q34 30 36 38 M30 26 Q38 24 42 30\"></path>", "dwarf": "<path d=\"M14 24 Q14 12 24 12 Q34 12 34 24\"></path><path d=\"M10 24 H38\"></path><path d=\"M16 24 Q16 38 24 42 Q32 38 32 24\"></path><path class=\"t\" d=\"M19 30 L24 36 L29 30\"></path><path d=\"M24 4 V12\"></path>", "berserk": "<path d=\"M10 42 L30 12\"></path><path d=\"M26 6 Q40 6 40 20 Q34 14 30 16 Z\"></path><path d=\"M38 42 L18 12\"></path><path d=\"M22 6 Q8 6 8 20 Q14 14 18 16 Z\"></path><path class=\"t\" d=\"M22 34 L26 34\"></path>", "xbow": "<path d=\"M8 18 Q24 8 40 18\"></path><path class=\"t\" d=\"M8 18 L24 24 L40 18\"></path><path d=\"M24 10 V42\"></path><path d=\"M20 36 H28 V42 H20 Z\"></path><path d=\"M24 4 L21 10 H27 Z\"></path>", "camp_wolf": "<path d=\"M8 40 Q8 18 24 14 Q40 18 40 40 Z\"></path><path d=\"M18 40 Q18 30 24 28 Q30 30 30 40\"></path><path class=\"t\" d=\"M14 12 L18 6 L21 12 M27 12 L30 6 L34 12\"></path>", "camp_golem": "<path d=\"M10 42 V20 H16 V42 M32 42 V14 H38 V42\"></path><path d=\"M8 20 H18 M30 14 H40\"></path><path class=\"t\" d=\"M20 42 L24 32 L28 42\"></path><path d=\"M6 42 H42\"></path>", "camp_merc": "<path d=\"M6 40 L20 12 L34 40 Z\"></path><path d=\"M20 12 V40\"></path><path class=\"t\" d=\"M34 40 L40 28 L44 40\"></path><path d=\"M20 12 V6 L28 9 L20 12\"></path>", "mercs": "<circle cx=\"16\" cy=\"14\" r=\"5\"></circle><circle cx=\"32\" cy=\"14\" r=\"5\"></circle><path d=\"M8 34 Q8 22 16 22 Q24 22 24 34\"></path><path d=\"M24 34 Q24 22 32 22 Q40 22 40 34\"></path><path class=\"t\" d=\"M14 42 H34\"></path><circle class=\"f\" cx=\"24\" cy=\"42\" r=\"3\"></circle>"}, "K": {"valen": "commander", "sylvie": "commander", "orion": "commander", "gru": "commander", "brand": "commander", "raven": "commander", "pike": "unit", "shield": "unit", "cav": "unit", "archer": "unit", "mage": "unit", "scout": "unit", "griffin": "unit", "siege": "unit", "priest": "unit", "trench": "building", "arrowtower": "building", "cheval": "building", "barracks": "building", "obelisk": "building", "banner": "building", "watch": "building", "trap": "building", "supply": "building", "t1": "structure", "t2": "structure", "t3": "structure", "core": "structure", "dragon": "structure", "titan": "structure", "advance": "command", "hold": "command", "rally": "command", "retreat": "command", "charge": "command", "spread": "command", "focus": "command", "ambush": "command", "move": "command", "deploy": "command", "f_square": "command", "f_line": "command", "f_wedge": "command", "f_circle": "command", "f_loose": "command", "gold": "ui", "spyglass": "ui", "unknown": "ui", "build": "ui", "reform": "ui", "voice": "ui", "menu": "ui", "exit": "ui", "demolish": "ui", "troops": "ui", "armory": "ui", "upgrade": "ui", "lvl": "ui", "e_valen": "command", "e_sylvie": "command", "e_orion": "command", "e_gru": "command", "e_brand": "command", "e_raven": "command", "recruit": "ui", "rep": "ui", "ping": "ui", "talent": "ui", "wx_clear": "ui", "wx_rain": "ui", "wx_fog": "ui", "wx_night": "ui", "camp": "ui", "templar": "unit", "longbow": "unit", "revenant": "unit", "necro": "unit", "dwarf": "unit", "berserk": "unit", "xbow": "unit", "camp_wolf": "structure", "camp_golem": "structure", "camp_merc": "structure", "mercs": "ui"}, "N": {"valen": "鐵壁公爵 瓦倫", "sylvie": "遊俠女王 希爾薇", "orion": "星咒賢者 歐瑞恩", "gru": "獸語者 格魯", "brand": "攻城大師 布蘭德", "raven": "影刃 夜鴉", "pike": "長槍兵", "shield": "盾衛", "cav": "騎兵", "archer": "弓兵", "mage": "戰鬥法師", "scout": "暗影斥候", "griffin": "獅鷲騎士", "siege": "符文投石車", "priest": "聖光祭司", "trench": "戰壕", "arrowtower": "箭塔", "cheval": "拒馬", "barracks": "前線兵營", "obelisk": "秘法方尖碑", "banner": "戰旗", "watch": "瞭望塔", "trap": "符文陷阱", "supply": "補給站", "t1": "外塔 (一階)", "t2": "中塔 (二階)", "t3": "內塔 (三階)", "core": "主塔", "dragon": "深淵巨龍", "titan": "遠古泰坦", "advance": "前進", "hold": "駐守", "rally": "集結", "retreat": "撤退", "charge": "衝鋒", "spread": "散開", "focus": "集火", "ambush": "埋伏", "move": "移動", "deploy": "戰術部署", "f_square": "方陣", "f_line": "橫列", "f_wedge": "楔形", "f_circle": "圓陣", "f_loose": "散兵", "gold": "軍資", "spyglass": "偵察", "unknown": "未知兵種", "build": "建造", "reform": "整編", "voice": "語音", "menu": "選單", "exit": "退出", "demolish": "拆除", "troops": "部隊編制", "armory": "軍械庫", "upgrade": "升級", "lvl": "等級", "e_valen": "聖輝壁壘", "e_sylvie": "破曉神射", "e_orion": "星隕天降", "e_gru": "萬獸之王", "e_brand": "攻城巨砲", "e_raven": "萬影突襲", "recruit": "招募", "rep": "聲望", "ping": "信號", "talent": "天賦", "wx_clear": "晴朗", "wx_rain": "大雨", "wx_fog": "濃霧", "wx_night": "夜戰", "camp": "營地", "templar": "聖殿騎士", "longbow": "皇家長弓手", "revenant": "亡魂戰士", "necro": "死靈術士", "dwarf": "山地矮人", "berserk": "蠻族狂戰士", "xbow": "傭兵弩手", "camp_wolf": "狼窩", "camp_golem": "石像遺跡", "camp_merc": "傭兵營地", "mercs": "僱用傭兵"}};
+const GD = {"G":{"valen":"<path d=\"M24 5 L39 10 V22 C39 32 32.5 38.5 24 43 C15.5 38.5 9 32 9 22 V10 Z\"></path><path d=\"M16.5 31 V18 H19.5 V21 H22.5 V18 H25.5 V21 H28.5 V18 H31.5 V31 Z\"></path><path d=\"M22 31 V27.5 A2 2 0 0 1 26 27.5 V31\"></path>","sylvie":"<path d=\"M15 6 Q36 24 15 42\"></path><path class=\"t\" d=\"M15 6 L15 42\"></path><path d=\"M7 24 H41\"></path><path d=\"M35 18.5 L41 24 L35 29.5\"></path><path d=\"M7 24 L4 20.5 M7 24 L4 27.5 M11 24 L8 20.5 M11 24 L8 27.5\"></path>","orion":"<path d=\"M12 43 L28.5 17.5\"></path><circle cx=\"32\" cy=\"12\" r=\"6.5\"></circle><path class=\"t\" d=\"M32 8.5 V15.5 M28.5 12 H35.5\"></path><path class=\"f\" d=\"M40 25 L41.6 28.4 L45 30 L41.6 31.6 L40 35 L38.4 31.6 L35 30 L38.4 28.4 Z\"></path><path class=\"f\" d=\"M10 9 L11.1 11.9 L14 13 L11.1 14.1 L10 17 L8.9 14.1 L6 13 L8.9 11.9 Z\"></path>","gru":"<path d=\"M12 8 Q22 22 14 41\"></path><path d=\"M22 5 Q32 22 23.5 43\"></path><path d=\"M32 8 Q42 22 33 41\"></path>","brand":"<path d=\"M11 8 H37 V19 H11 Z\"></path><path d=\"M24 19 V43\"></path><path class=\"t\" d=\"M20.5 34.5 H27.5 M20.5 38.5 H27.5 M16 8 V19 M32 8 V19\"></path>","raven":"<path d=\"M5 25 Q24 8 43 25 Q24 42 5 25 Z\"></path><circle cx=\"24\" cy=\"25\" r=\"6.5\"></circle><circle class=\"f\" cx=\"24\" cy=\"25\" r=\"2.8\"></circle><path class=\"t\" d=\"M12 15 L9 10.5 M24 10.5 V5 M36 15 L39 10.5\"></path>","pike":"<path d=\"M17 43 V15 M31 43 V15\"></path><path d=\"M17 5 L20.5 15 H13.5 Z M31 5 L34.5 15 H27.5 Z\"></path><path class=\"t\" d=\"M12 30 H36\"></path>","shield":"<circle cx=\"24\" cy=\"24\" r=\"16.5\"></circle><circle class=\"t\" cx=\"24\" cy=\"24\" r=\"10.5\"></circle><circle class=\"f\" cx=\"24\" cy=\"24\" r=\"4.5\"></circle><circle class=\"f\" cx=\"24\" cy=\"10.8\" r=\"1.4\"></circle><circle class=\"f\" cx=\"37.2\" cy=\"24\" r=\"1.4\"></circle><circle class=\"f\" cx=\"24\" cy=\"37.2\" r=\"1.4\"></circle><circle class=\"f\" cx=\"10.8\" cy=\"24\" r=\"1.4\"></circle>","cav":"<path d=\"M13 7 V23 A11 11 0 0 0 35 23 V7\"></path><path d=\"M9.5 7 H16.5 M31.5 7 H38.5\"></path><path class=\"t\" d=\"M5 39 H14 M9 44 H22 M30 41 H43\"></path>","archer":"<path d=\"M9 39 L39 9 M9 9 L39 39\"></path><path d=\"M39 9 L31.5 10 M39 9 L38 16.5 M9 9 L16.5 10 M9 9 L10 16.5\"></path><path class=\"t\" d=\"M9 39 L5.5 35.5 M9 39 L12.5 42.5 M39 39 L42.5 35.5 M39 39 L35.5 42.5\"></path>","mage":"<circle class=\"t dash\" cx=\"24\" cy=\"24\" r=\"18.5\"></circle><path d=\"M24 8 L36 24 L24 40 L12 24 Z\"></path><path class=\"t\" d=\"M24 15 V33 M17 24 H31\"></path><circle class=\"f\" cx=\"24\" cy=\"24\" r=\"3.4\"></circle>","scout":"<path d=\"M24 4 L28.5 27 H19.5 Z\"></path><path d=\"M14.5 27 H33.5\"></path><path d=\"M24 27 V36.5\"></path><circle cx=\"24\" cy=\"40.5\" r=\"3\"></circle><path class=\"t\" d=\"M24 10 V23\"></path>","griffin":"<path d=\"M5 35 C9 19 23 8 43 6 C39 11 38 14 39 17 C34 18 32 21 33 24.5 C28 25.5 26 28.5 27 32.5 C19 32.5 12 33.5 5 35 Z\"></path><path class=\"t\" d=\"M13 30 C20 22 29 15.5 39 11.5 M20 31.5 C24 27 28 23.5 33 21\"></path><path class=\"t\" d=\"M12 41 L16 37 M18 44 L21 39\"></path>","siege":"<path d=\"M5 37 H43\"></path><circle cx=\"13\" cy=\"38\" r=\"4.5\"></circle><circle cx=\"35\" cy=\"38\" r=\"4.5\"></circle><path d=\"M15 31 L36.5 12\"></path><circle class=\"f\" cx=\"39\" cy=\"9.8\" r=\"3.6\"></circle><path d=\"M17 37 L25 22 L33 37\"></path>","priest":"<path d=\"M14 15 H34 Q34 28 24 30 Q14 28 14 15 Z\"></path><path d=\"M24 30 V38\"></path><path d=\"M16 41 Q24 36 32 41\"></path><path class=\"t\" d=\"M24 3 V8 M13.5 6 L16.5 10 M34.5 6 L31.5 10 M8 13 L11.5 14.5 M40 13 L36.5 14.5\"></path><circle class=\"f\" cx=\"24\" cy=\"21\" r=\"2.6\"></circle>","trench":"<path d=\"M3 22 H12 L16.5 34 H31.5 L36 22 H45\"></path><path d=\"M5 22 Q5 16.5 9.5 16.5 Q14 16.5 14 22 M34 22 Q34 16.5 38.5 16.5 Q43 16.5 43 22\"></path><path d=\"M19.5 34 Q19.5 27 24 27 Q28.5 27 28.5 34\"></path><path class=\"t\" d=\"M7 42 L11 38 M17 42 L21 38 M27 42 L31 38 M37 42 L41 38\"></path>","arrowtower":"<path d=\"M16 43 L18.5 19 H29.5 L32 43 Z\"></path><path d=\"M14 19 V8.5 H18 V12.5 H22 V8.5 H26 V12.5 H30 V8.5 H34 V19 Z\"></path><path d=\"M24 24.5 V33\"></path><path class=\"t\" d=\"M21 28.5 H27\"></path>","cheval":"<path d=\"M4 26 H44\"></path><path d=\"M9 12 L17 40 M17 12 L9 40 M20 12 L28 40 M28 12 L20 40 M31 12 L39 40 M39 12 L31 40\"></path>","barracks":"<path d=\"M5 40 L24 11 L43 40 Z\"></path><path d=\"M24 40 V26 L17.5 40\"></path><path d=\"M24 11 V3.5\"></path><path class=\"f\" d=\"M24 3.5 L33 6.2 L24 9 Z\"></path>","obelisk":"<path d=\"M19.5 41 L21.5 13 L24 5.5 L26.5 13 L28.5 41 Z\"></path><path class=\"f\" d=\"M24 19 L26.2 24 L24 29 L21.8 24 Z\"></path><path d=\"M14 42 H34\"></path><path class=\"t\" d=\"M10 16 L14.5 18.5 M38 16 L33.5 18.5 M7 27 H13 M41 27 H35\"></path>","banner":"<path d=\"M13 44 V5\"></path><path d=\"M13 8 H38 L32.5 15.5 L38 23 H13\"></path><circle class=\"f\" cx=\"22.5\" cy=\"15.5\" r=\"3.2\"></circle><path d=\"M8.5 44 H17.5\"></path>","watch":"<path d=\"M15 43 L19 20 M33 43 L29 20\"></path><path d=\"M12.5 20 H35.5\"></path><path d=\"M12.5 20 L24 9 L35.5 20\"></path><path class=\"t\" d=\"M17.5 33 H30.5 M18.3 27 L30 33 M29.7 27 L18 33\"></path><path class=\"t\" d=\"M39 7 Q42.5 11 39 15 M42 4 Q47.5 11 42 18\"></path>","trap":"<circle class=\"t dash\" cx=\"24\" cy=\"24\" r=\"19\"></circle><path d=\"M9.5 29 H38.5\"></path><path d=\"M9.5 29 L13 20 L16.5 29 L20 20 L23.5 29 L27 20 L30.5 29 L34 20 L38.5 29\"></path><circle class=\"f\" cx=\"24\" cy=\"35.5\" r=\"2\"></circle>","supply":"<path d=\"M8 20 H40 V41 H8 Z\"></path><path d=\"M8 20 L13 12 H35 L40 20\"></path><path d=\"M24 25 V36 M18.5 30.5 H29.5\"></path>","t1":"<path d=\"M15.5 43 L18 19 H30 L32.5 43 Z\"></path><path d=\"M14 19 V9 H18 V12.5 H22 V9 H26 V12.5 H30 V9 H34 V19 Z\"></path><path d=\"M21 31 H27\"></path>","t2":"<path d=\"M15.5 43 L18 19 H30 L32.5 43 Z\"></path><path d=\"M14 19 V9 H18 V12.5 H22 V9 H26 V12.5 H30 V9 H34 V19 Z\"></path><path d=\"M21 27 H27 M21 34 H27\"></path>","t3":"<path d=\"M15.5 43 L18 19 H30 L32.5 43 Z\"></path><path d=\"M14 19 V9 H18 V12.5 H22 V9 H26 V12.5 H30 V9 H34 V19 Z\"></path><path d=\"M21 25 H27 M21 30.5 H27 M21 36 H27\"></path>","core":"<path class=\"f\" d=\"M13 15 L16.5 5.5 L20.5 11 L24 3.5 L27.5 11 L31.5 5.5 L35 15 Z\"></path><path d=\"M11 43 V19 H37 V43\"></path><path d=\"M7 43 H41\"></path><path d=\"M20 43 V35 A4 4 0 0 1 28 35 V43\"></path><path class=\"t\" d=\"M16 25 V29 M32 25 V29\"></path>","dragon":"<path d=\"M24 4 C31 12 37 18 37 28.5 C37 37 31 43.5 24 43.5 C17 43.5 11 37 11 28.5 C11 22.5 14.5 18 17.5 14 C18.5 19.5 21 22 23.5 22 C21.5 16 21.5 10 24 4 Z\"></path><path class=\"f\" d=\"M24 23.5 Q27.5 29 24 35 Q20.5 29 24 23.5 Z\"></path>","titan":"<path d=\"M10 14 L18 6 H30 L38 14 L40.5 34 L30.5 43 H17.5 L7.5 34 Z\"></path><path d=\"M16.5 22.5 H21.5 M26.5 22.5 H31.5\"></path><path d=\"M18.5 33 H29.5\"></path><path class=\"t\" d=\"M24 6 L21.5 12.5 L25.5 16\"></path>","advance":"<path d=\"M12 27 L24 15 L36 27\"></path><path d=\"M12 37 L24 25 L36 37\"></path>","hold":"<path d=\"M18 38 V7\"></path><path d=\"M18 9 H35 L30.5 15.5 L35 22 H18\"></path><path d=\"M7 41 Q24 32 41 41\"></path>","rally":"<circle class=\"f\" cx=\"24\" cy=\"24\" r=\"4.2\"></circle><path d=\"M6 6 L16.5 16.5 M16.5 9.5 V16.5 H9.5 M42 6 L31.5 16.5 M38.5 16.5 H31.5 V9.5 M6 42 L16.5 31.5 M9.5 31.5 H16.5 V38.5 M42 42 L31.5 31.5 M31.5 38.5 V31.5 H38.5\"></path>","retreat":"<path d=\"M34 41 V20 A10 10 0 0 0 14 20 V31\"></path><path d=\"M7.5 25 L14 32 L20.5 25\"></path>","charge":"<path d=\"M7 24 H33\"></path><path class=\"f\" d=\"M29 15.5 L43 24 L29 32.5 Z\"></path><path class=\"t\" d=\"M5 14 H19 M5 34 H19\"></path>","spread":"<circle class=\"f\" cx=\"24\" cy=\"24\" r=\"3.2\"></circle><path d=\"M18.5 18.5 L7 7 M7 14.5 V7 H14.5 M29.5 18.5 L41 7 M33.5 7 H41 V14.5 M18.5 29.5 L7 41 M7 33.5 V41 H14.5 M29.5 29.5 L41 41 M41 33.5 V41 H33.5\"></path>","focus":"<circle cx=\"24\" cy=\"24\" r=\"13\"></circle><path d=\"M24 4 V14 M24 34 V44 M4 24 H14 M34 24 H44\"></path><circle class=\"f\" cx=\"24\" cy=\"24\" r=\"2.8\"></circle>","ambush":"<path d=\"M5 39 Q4 31 11 30 Q10 22 18 22 Q20 14 27.5 15.5 Q34.5 15 35 23 Q42 23.5 41.5 30.5 Q45 33 43 39 Z\"></path><path d=\"M16 31 Q24 25.5 32 31 Q24 36 16 31 Z\"></path><circle class=\"f\" cx=\"24\" cy=\"31\" r=\"2\"></circle>","move":"<path class=\"t dash\" d=\"M7 41 Q10 27 24 26\"></path><path d=\"M21 21.5 L26 26 L21 30.5\"></path><path d=\"M31 41 V8\"></path><path d=\"M31 9.5 H43 L39.5 15 L43 20.5 H31\"></path><path d=\"M26 41 H36\"></path>","deploy":"<path d=\"M5 12 L17 7.5 L31 12 L43 7.5 V36 L31 40.5 L17 36 L5 40.5 Z\"></path><path class=\"t\" d=\"M17 7.5 V36 M31 12 V40.5\"></path><path class=\"f\" d=\"M24 16 L28.5 22 L24 28 L19.5 22 Z\"></path><path class=\"t dash\" d=\"M10 33 Q14 26 20 24\"></path>","f_square":"<circle class=\"f\" cx=\"14\" cy=\"14\" r=\"3\"></circle><circle class=\"f\" cx=\"24\" cy=\"14\" r=\"3\"></circle><circle class=\"f\" cx=\"34\" cy=\"14\" r=\"3\"></circle><circle class=\"f\" cx=\"14\" cy=\"24\" r=\"3\"></circle><circle class=\"f\" cx=\"24\" cy=\"24\" r=\"3\"></circle><circle class=\"f\" cx=\"34\" cy=\"24\" r=\"3\"></circle><circle class=\"f\" cx=\"14\" cy=\"34\" r=\"3\"></circle><circle class=\"f\" cx=\"24\" cy=\"34\" r=\"3\"></circle><circle class=\"f\" cx=\"34\" cy=\"34\" r=\"3\"></circle><path class=\"t\" d=\"M8 6 H40\"></path>","f_line":"<circle class=\"f\" cx=\"8\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"16\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"24\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"32\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"40\" cy=\"22\" r=\"2.7\"></circle><circle class=\"f\" cx=\"8\" cy=\"31\" r=\"2.7\"></circle><circle class=\"f\" cx=\"16\" cy=\"31\" r=\"2.7\"></circle><circle class=\"f\" cx=\"24\" cy=\"31\" r=\"2.7\"></circle><circle class=\"f\" cx=\"32\" cy=\"31\" r=\"2.7\"></circle><circle class=\"f\" cx=\"40\" cy=\"31\" r=\"2.7\"></circle><path d=\"M17 13 L24 8 L31 13\"></path>","f_wedge":"<circle class=\"f\" cx=\"24\" cy=\"10\" r=\"2.8\"></circle><circle class=\"f\" cx=\"18\" cy=\"20\" r=\"2.8\"></circle><circle class=\"f\" cx=\"30\" cy=\"20\" r=\"2.8\"></circle><circle class=\"f\" cx=\"12\" cy=\"30\" r=\"2.8\"></circle><circle class=\"f\" cx=\"24\" cy=\"30\" r=\"2.8\"></circle><circle class=\"f\" cx=\"36\" cy=\"30\" r=\"2.8\"></circle><circle class=\"f\" cx=\"6\" cy=\"40\" r=\"2.8\"></circle><circle class=\"f\" cx=\"18\" cy=\"40\" r=\"2.8\"></circle><circle class=\"f\" cx=\"30\" cy=\"40\" r=\"2.8\"></circle><circle class=\"f\" cx=\"42\" cy=\"40\" r=\"2.8\"></circle>","f_circle":"<circle class=\"f\" cx=\"24.0\" cy=\"9.0\" r=\"2.8\"></circle><circle class=\"f\" cx=\"34.6\" cy=\"13.4\" r=\"2.8\"></circle><circle class=\"f\" cx=\"39.0\" cy=\"24.0\" r=\"2.8\"></circle><circle class=\"f\" cx=\"34.6\" cy=\"34.6\" r=\"2.8\"></circle><circle class=\"f\" cx=\"24.0\" cy=\"39.0\" r=\"2.8\"></circle><circle class=\"f\" cx=\"13.4\" cy=\"34.6\" r=\"2.8\"></circle><circle class=\"f\" cx=\"9.0\" cy=\"24.0\" r=\"2.8\"></circle><circle class=\"f\" cx=\"13.4\" cy=\"13.4\" r=\"2.8\"></circle><circle class=\"t\" cx=\"24\" cy=\"24\" r=\"5\"></circle>","f_loose":"<circle class=\"f\" cx=\"9\" cy=\"10\" r=\"2.6\"></circle><circle class=\"f\" cx=\"27\" cy=\"7\" r=\"2.6\"></circle><circle class=\"f\" cx=\"41\" cy=\"15\" r=\"2.6\"></circle><circle class=\"f\" cx=\"17\" cy=\"23\" r=\"2.6\"></circle><circle class=\"f\" cx=\"35\" cy=\"28\" r=\"2.6\"></circle><circle class=\"f\" cx=\"8\" cy=\"34\" r=\"2.6\"></circle><circle class=\"f\" cx=\"24\" cy=\"39\" r=\"2.6\"></circle><circle class=\"f\" cx=\"41\" cy=\"41\" r=\"2.6\"></circle>","gold":"<ellipse cx=\"24\" cy=\"13\" rx=\"13\" ry=\"5\"></ellipse><path d=\"M11 13 V21 A13 5 0 0 0 37 21 V13\"></path><path d=\"M11 21 V29 A13 5 0 0 0 37 29 V21\"></path><path d=\"M11 29 V37 A13 5 0 0 0 37 37 V29\"></path>","spyglass":"<path d=\"M6 32 L26 12 L33 19 L13 39 Z\"></path><path d=\"M26 12 L30.5 7.5 L37.5 14.5 L33 19\"></path><path class=\"t\" d=\"M15.5 37 L12 45 M20 32.5 L25 45\"></path>","unknown":"<path class=\"t dash\" d=\"M24 4 L40 9.5 V22 C40 32.5 33 39 24 44 C15 39 8 32.5 8 22 V9.5 Z\"></path><path d=\"M19 18 Q19 12.5 24 12.5 Q29 12.5 29 18 Q29 22.5 24 24.5 V28.5\"></path><circle class=\"f\" cx=\"24\" cy=\"34\" r=\"2\"></circle>","build":"<path d=\"M5 30 H24 V41 H5 Z\"></path><path class=\"t\" d=\"M14.5 30 V35.5 M5 35.5 H24 M9.5 35.5 V41 M19.5 35.5 V41\"></path><path d=\"M28 39 L38 21\"></path><path d=\"M32.5 13 L44 19.5 L41 24.5 L29.5 18 Z\"></path>","reform":"<path d=\"M9 21 A15.5 15.5 0 0 1 37 14\"></path><path d=\"M38 6.5 V14.5 H30\"></path><path d=\"M39 27 A15.5 15.5 0 0 1 11 34\"></path><path d=\"M10 41.5 V33.5 H18\"></path><path class=\"f\" d=\"M24 17 L30 19.5 V24 C30 28 27.5 30.5 24 32 C20.5 30.5 18 28 18 24 V19.5 Z\"></path>","voice":"<path d=\"M7 19 H14 L24 11 V37 L14 29 H7 Z\"></path><path d=\"M30 18 Q34.5 24 30 30 M35.5 13 Q43 24 35.5 35\"></path>","menu":"<path d=\"M10 14 H38 M10 24 H38 M10 34 H38\"></path>","exit":"<path d=\"M27 8 H11 V40 H27\"></path><path d=\"M21 24 H42\"></path><path d=\"M35 17 L42 24 L35 31\"></path>","demolish":"<path d=\"M5 30 H25 V42 H5 Z\"></path><path class=\"t\" d=\"M14 30 L17.5 35 L13 38 L15.5 42\"></path><path d=\"M30 41 L39.5 23\"></path><path d=\"M33.5 15 L45 21.5 L42 26.5 L30.5 20 Z\"></path><path class=\"t\" d=\"M26.5 26 L23 22.5 M29 21.5 L27.5 17\"></path>","troops":"<path d=\"M12 41 V21 Q12 8 24 8 Q36 8 36 21 V41 Z\"></path><path d=\"M16 23 H32\"></path><path class=\"t\" d=\"M24 8 V19 M24 27 V41 M19.5 31 V35 M28.5 31 V35\"></path>","armory":"<path d=\"M8 22 H34 Q34 28 28 30 V34 H14 V30 Q8 28 8 22 Z\"></path><path d=\"M12 34 H30 V40 H12 Z\"></path><path d=\"M34 22 H42 Q42 26 37 27\"></path><path d=\"M30 6 L40 16\"></path><path d=\"M26 10 L34 2 L38 6 L30 14 Z\"></path>","upgrade":"<path d=\"M10 40 H38\"></path><path d=\"M14 30 L24 20 L34 30\"></path><path d=\"M14 20 L24 10 L34 20\"></path>","lvl":"<path d=\"M24 5 L29 17 L42 18 L32 27 L35 40 L24 33 L13 40 L16 27 L6 18 L19 17 Z\"></path>","e_valen":"<path d=\"M24 10 L36 14 V24 C36 32 31 37 24 40 C17 37 12 32 12 24 V14 Z\"></path><path class=\"t\" d=\"M24 2 V6 M9 7 L12 10 M39 7 L36 10 M3 21 H7 M41 21 H45\"></path><path d=\"M19 25 L23 29 L30 20\"></path>","e_sylvie":"<path d=\"M4 34 L42 12\"></path><path d=\"M35 10 L42 12 L39 18\"></path><path class=\"t\" d=\"M14 18 V36 M22 14 V32 M30 10 V28\"></path><path d=\"M4 34 L1 30 M4 34 L8 37\"></path>","e_orion":"<circle cx=\"30\" cy=\"31\" r=\"9\"></circle><path d=\"M24 24 L8 8 M30 22 L20 5 M22 30 L5 20\"></path><path class=\"t\" d=\"M27 29 A3 3 0 0 1 32 27\"></path><path d=\"M10 43 H44\"></path>","e_gru":"<path d=\"M12 22 Q12 10 24 10 Q36 10 36 22 Q36 34 24 40 Q12 34 12 22 Z\"></path><path d=\"M12 14 L8 6 L16 10 M36 14 L40 6 L32 10\"></path><path class=\"t\" d=\"M18 22 H21 M27 22 H30\"></path><path d=\"M20 31 L24 34 L28 31\"></path>","e_brand":"<path d=\"M8 30 L30 16 L35 24 L13 38 Z\"></path><circle cx=\"15\" cy=\"38\" r=\"5\"></circle><circle cx=\"30\" cy=\"34\" r=\"5\"></circle><path class=\"t\" d=\"M36 13 L41 9 M38 19 L44 18 M33 10 L34 4\"></path>","e_raven":"<path d=\"M30 6 A16 16 0 1 0 42 30 A12 12 0 1 1 30 6 Z\"></path><path d=\"M10 42 L20 32 M16 44 L24 36\"></path><path class=\"t\" d=\"M8 36 L12 40 M14 30 L18 34\"></path>","recruit":"<path d=\"M10 8 H34 Q38 8 38 12 V36 Q38 40 34 40 H14\"></path><path d=\"M10 8 Q6 8 6 12 V14 H14 V12 Q14 8 10 8\"></path><path class=\"t\" d=\"M16 16 H32 M16 22 H32 M16 28 H26\"></path><circle cx=\"31\" cy=\"34\" r=\"6\"></circle><path d=\"M29 34 L31 36 L34 32\"></path>","rep":"<path d=\"M24 40 C12 36 8 26 10 14\"></path><path d=\"M24 40 C36 36 40 26 38 14\"></path><path class=\"t\" d=\"M10 20 L15 18 M10 27 L16 26 M13 33 L18 31 M38 20 L33 18 M38 27 L32 26 M35 33 L30 31\"></path><path d=\"M24 10 L27 17 L34 17 L28.5 21.5 L30.5 29 L24 24.5 L17.5 29 L19.5 21.5 L14 17 L21 17 Z\"></path>","ping":"<path d=\"M24 42 L14 24 A11 11 0 1 1 34 24 Z\"></path><circle cx=\"24\" cy=\"18\" r=\"4\"></circle><path class=\"t\" d=\"M6 42 H42\"></path>","talent":"<path d=\"M24 42 V20\"></path><path d=\"M24 26 L14 18 M24 22 L34 14 M24 32 L33 26\"></path><circle cx=\"14\" cy=\"16\" r=\"4\"></circle><circle cx=\"34\" cy=\"12\" r=\"4\"></circle><circle cx=\"35\" cy=\"25\" r=\"3.5\"></circle><circle cx=\"24\" cy=\"16\" r=\"4.5\"></circle>","wx_clear":"<circle cx=\"24\" cy=\"24\" r=\"8\"></circle><path class=\"t\" d=\"M24 6 V11 M24 37 V42 M6 24 H11 M37 24 H42 M11 11 L14.5 14.5 M33.5 33.5 L37 37 M11 37 L14.5 33.5 M33.5 14.5 L37 11\"></path>","wx_rain":"<path d=\"M12 28 A8 8 0 0 1 14 12 A10 10 0 0 1 33 12 A7 7 0 0 1 36 28 Z\"></path><path class=\"t\" d=\"M15 33 L12 40 M23 33 L20 40 M31 33 L28 40\"></path>","wx_fog":"<path d=\"M8 16 H40 M5 24 H35 M12 32 H43 M8 40 H30\"></path>","wx_night":"<path d=\"M30 8 A16 16 0 1 0 40 30 A12 12 0 1 1 30 8 Z\"></path><path class=\"t\" d=\"M12 10 L12 14 M10 12 L14 12 M40 12 L40 15 M38.5 13.5 L41.5 13.5\"></path>","camp":"<path d=\"M6 40 L24 10 L42 40 Z\"></path><path d=\"M24 10 V40\"></path><path d=\"M18 40 L24 30 L30 40\"></path><path class=\"t\" d=\"M24 10 L30 5\"></path>","templar":"<path d=\"M24 6 L35 10 V22 C35 31 30 37 24 41 C18 37 13 31 13 22 V10 Z\"></path><path d=\"M24 13 V33 M17 20 H31\"></path><circle class=\"t\" cx=\"24\" cy=\"4\" r=\"0.1\"></circle><path class=\"t\" d=\"M16 4 Q24 0 32 4\"></path>","longbow":"<path d=\"M14 4 Q36 24 14 44\"></path><path class=\"t\" d=\"M14 4 V44\"></path><path d=\"M10 24 H42\"></path><path d=\"M42 24 L36 20 M42 24 L36 28\"></path><path class=\"t\" d=\"M10 24 L6 20 M10 24 L6 28\"></path>","revenant":"<path d=\"M15 20 Q15 7 24 7 Q33 7 33 20 V26 H29 V31 H19 V26 H15 Z\"></path><circle class=\"f\" cx=\"20\" cy=\"18\" r=\"2.6\"></circle><circle class=\"f\" cx=\"28\" cy=\"18\" r=\"2.6\"></circle><path class=\"t\" d=\"M22 31 V35 M26 31 V35\"></path><path d=\"M12 41 L36 41 M16 37 L32 45 M32 37 L16 45\"></path>","necro":"<path d=\"M12 42 L36 6\"></path><circle cx=\"36\" cy=\"8\" r=\"4\"></circle><path d=\"M20 28 Q14 22 18 14 Q22 20 28 18\"></path><circle class=\"f\" cx=\"22\" cy=\"21\" r=\"1.6\"></circle><path class=\"t\" d=\"M26 30 Q34 30 36 38 M30 26 Q38 24 42 30\"></path>","dwarf":"<path d=\"M14 24 Q14 12 24 12 Q34 12 34 24\"></path><path d=\"M10 24 H38\"></path><path d=\"M16 24 Q16 38 24 42 Q32 38 32 24\"></path><path class=\"t\" d=\"M19 30 L24 36 L29 30\"></path><path d=\"M24 4 V12\"></path>","berserk":"<path d=\"M10 42 L30 12\"></path><path d=\"M26 6 Q40 6 40 20 Q34 14 30 16 Z\"></path><path d=\"M38 42 L18 12\"></path><path d=\"M22 6 Q8 6 8 20 Q14 14 18 16 Z\"></path><path class=\"t\" d=\"M22 34 L26 34\"></path>","xbow":"<path d=\"M8 18 Q24 8 40 18\"></path><path class=\"t\" d=\"M8 18 L24 24 L40 18\"></path><path d=\"M24 10 V42\"></path><path d=\"M20 36 H28 V42 H20 Z\"></path><path d=\"M24 4 L21 10 H27 Z\"></path>","camp_wolf":"<path d=\"M8 40 Q8 18 24 14 Q40 18 40 40 Z\"></path><path d=\"M18 40 Q18 30 24 28 Q30 30 30 40\"></path><path class=\"t\" d=\"M14 12 L18 6 L21 12 M27 12 L30 6 L34 12\"></path>","camp_golem":"<path d=\"M10 42 V20 H16 V42 M32 42 V14 H38 V42\"></path><path d=\"M8 20 H18 M30 14 H40\"></path><path class=\"t\" d=\"M20 42 L24 32 L28 42\"></path><path d=\"M6 42 H42\"></path>","camp_merc":"<path d=\"M6 40 L20 12 L34 40 Z\"></path><path d=\"M20 12 V40\"></path><path class=\"t\" d=\"M34 40 L40 28 L44 40\"></path><path d=\"M20 12 V6 L28 9 L20 12\"></path>","mercs":"<circle cx=\"16\" cy=\"14\" r=\"5\"></circle><circle cx=\"32\" cy=\"14\" r=\"5\"></circle><path d=\"M8 34 Q8 22 16 22 Q24 22 24 34\"></path><path d=\"M24 34 Q24 22 32 22 Q40 22 40 34\"></path><path class=\"t\" d=\"M14 42 H34\"></path><circle class=\"f\" cx=\"24\" cy=\"42\" r=\"3\"></circle>","rune":"<ellipse cx=\"24\" cy=\"35\" rx=\"17\" ry=\"7\"></ellipse><ellipse class=\"t dash\" cx=\"24\" cy=\"35\" rx=\"10.5\" ry=\"4.2\"></ellipse><path d=\"M8 34 V27 M40 34 V27 M15 39.5 V32 M33 39.5 V32\"></path><path d=\"M24 31 V9 M17.5 15.5 L24 9 L30.5 15.5\"></path><circle class=\"f\" cx=\"24\" cy=\"35\" r=\"2\"></circle>"},"K":{"valen":"commander","sylvie":"commander","orion":"commander","gru":"commander","brand":"commander","raven":"commander","pike":"unit","shield":"unit","cav":"unit","archer":"unit","mage":"unit","scout":"unit","griffin":"unit","siege":"unit","priest":"unit","trench":"building","arrowtower":"building","cheval":"building","barracks":"building","obelisk":"building","banner":"building","watch":"building","trap":"building","supply":"building","t1":"structure","t2":"structure","t3":"structure","core":"structure","dragon":"structure","titan":"structure","advance":"command","hold":"command","rally":"command","retreat":"command","charge":"command","spread":"command","focus":"command","ambush":"command","move":"command","deploy":"command","f_square":"command","f_line":"command","f_wedge":"command","f_circle":"command","f_loose":"command","gold":"ui","spyglass":"ui","unknown":"ui","build":"ui","reform":"ui","voice":"ui","menu":"ui","exit":"ui","demolish":"ui","troops":"ui","armory":"ui","upgrade":"ui","lvl":"ui","e_valen":"command","e_sylvie":"command","e_orion":"command","e_gru":"command","e_brand":"command","e_raven":"command","recruit":"ui","rep":"ui","ping":"ui","talent":"ui","wx_clear":"ui","wx_rain":"ui","wx_fog":"ui","wx_night":"ui","camp":"ui","templar":"unit","longbow":"unit","revenant":"unit","necro":"unit","dwarf":"unit","berserk":"unit","xbow":"unit","camp_wolf":"structure","camp_golem":"structure","camp_merc":"structure","mercs":"ui","rune":"building"},"N":{"valen":"鐵壁公爵 瓦倫","sylvie":"遊俠女王 希爾薇","orion":"星咒賢者 歐瑞恩","gru":"獸語者 格魯","brand":"攻城大師 布蘭德","raven":"影刃 夜鴉","pike":"長槍兵","shield":"盾衛","cav":"騎兵","archer":"弓兵","mage":"戰鬥法師","scout":"暗影斥候","griffin":"獅鷲騎士","siege":"符文投石車","priest":"聖光祭司","trench":"戰壕","arrowtower":"箭塔","cheval":"拒馬","barracks":"前線兵營","obelisk":"秘法方尖碑","banner":"戰旗","watch":"瞭望塔","trap":"符文陷阱","supply":"補給站","t1":"外塔 (一階)","t2":"中塔 (二階)","t3":"內塔 (三階)","core":"主塔","dragon":"深淵巨龍","titan":"遠古泰坦","advance":"前進","hold":"駐守","rally":"集結","retreat":"撤退","charge":"衝鋒","spread":"散開","focus":"集火","ambush":"埋伏","move":"移動","deploy":"戰術部署","f_square":"方陣","f_line":"橫列","f_wedge":"楔形","f_circle":"圓陣","f_loose":"散兵","gold":"軍資","spyglass":"偵察","unknown":"未知兵種","build":"建造","reform":"整編","voice":"語音","menu":"選單","exit":"退出","demolish":"拆除","troops":"部隊編制","armory":"軍械庫","upgrade":"升級","lvl":"等級","e_valen":"聖輝壁壘","e_sylvie":"破曉神射","e_orion":"星隕天降","e_gru":"萬獸之王","e_brand":"攻城巨砲","e_raven":"萬影突襲","recruit":"招募","rep":"聲望","ping":"信號","talent":"天賦","wx_clear":"晴朗","wx_rain":"大雨","wx_fog":"濃霧","wx_night":"夜戰","camp":"營地","templar":"聖殿騎士","longbow":"皇家長弓手","revenant":"亡魂戰士","necro":"死靈術士","dwarf":"山地矮人","berserk":"蠻族狂戰士","xbow":"傭兵弩手","camp_wolf":"狼窩","camp_golem":"石像遺跡","camp_merc":"傭兵營地","mercs":"僱用傭兵"}};
 const GL = GD.G, KIND = GD.K;
 const C = {ink:'#ECE5D5', muted:'#A8A090', gold:'#D9A54A', blue:'#6FAEF0', red:'#D9604F', panel2:'#1F2631', line:'#2E3846', neutral:'#B892E0', g1:'#7FB4F2', g2:'#F1D29A'};
 const TC = [C.blue, C.red], GCOL = [C.g1, C.g2], GNUM = ['I', 'II'];
@@ -1137,7 +1161,8 @@ const BUILDS = {
   banner:     {n:'戰旗', cost:100, hp:600, r:10, t:2, s:'範圍攻速+15%', d:'範圍內友軍攻速 +15%'},
   watch:      {n:'瞭望塔', cost:90, hp:450, r:30, t:3, s:'視野30・反隱・辨識兵種', d:'大範圍視野，揭露隱身並辨識兵種'},
   trap:       {n:'符文陷阱', cost:60, hp:100, r:2.5, t:1, s:'隱形・踏入定身2秒', d:'隱形放置；踏入的敵軍定身 2 秒'},
-  supply:     {n:'補給站', cost:150, hp:850, r:9, t:3, s:'部隊與指揮官回血・可整編', d:'範圍內的部隊與指揮官每秒回復 3% 生命，可在此整編兵種'}
+  supply:     {n:'補給站', cost:150, hp:850, r:9, t:3, s:'部隊與指揮官回血・可整編', d:'範圍內的部隊與指揮官每秒回復 3% 生命，可在此整編兵種'},
+  rune:       {n:'重生法陣', cost:250, hp:900, r:0, t:5, s:'陣亡後在此復活・不能整編', d:'啟用後，指揮官陣亡時直接在這裡復活、兩隊補滿兵力，但不能整編換兵種（每位指揮官 1 座）'}
 };
 const BKEYS = Object.keys(BUILDS);
 const BPREF = {pike:['cheval','trench','banner'], shield:['banner','supply','trench'], cav:['banner','barracks','watch'], archer:['trench','arrowtower','watch'],
@@ -1492,42 +1517,46 @@ function newGame(playerKey, lineup) {
   ents = []; zones = []; fx = []; floaters = []; intel[0] = {}; intel[1] = {}; bubble = null;
   G = {time:0, waveT:4, visT:0, hudT:0, mmT:0, ravenT:[60, 60], over:false, muster:30, placing:null, aim:null, mouseT:-9, sel:'all', deploy:false, lastTap:null, tapT:-9, aiming:null, freeCam:null, mslot:0, mpick:[null, null], stats:{kills:0, deaths:0, towers:0, orders:0, skills:0, caps:0, objs:0}, lost:[0, 0], behind:-1, buff:[{}, {}], lastStand:[false, false], coreShield:[0, 0], obj:{titan:{t:240, ent:null}, dragon:{t:240, ent:null}}};
   G.flv = lineup === 'net' ? RMAX : lineup && lineup.flv ? lineup.flv : myRank();
+  modeInit(lineup);
   if (lineup !== 'net') for (const t of [0,1]) {
     const TW = t ? TW1 : TW0;
-    for (const l of LKEYS) TW[l].forEach((p, i) => addEnt({kind:'tow', team:t, lane:l, tier:i+1, x:p[0], z:p[1], r:2.8, hp:1500 + i*300, maxHp:1500 + i*300, rng:14, mesh:mkTower(t, i)}));
-    addEnt({kind:'core', team:t, x:CORE[t].x, z:CORE[t].z, r:5.5, hp:3600, maxHp:3600, rng:17, mesh:mkCore(t)});
+    const thp = G.mode === 'siege' ? 1.25 : 1;
+    if (modeTowers(t)) for (const l of LKEYS) TW[l].forEach((p, i) => addEnt({kind:'tow', team:t, lane:l, tier:i+1, x:p[0], z:p[1], r:2.8, hp:(1500 + i*300)*thp, maxHp:(1500 + i*300)*thp, rng:14, mesh:mkTower(t, i)}));
+    if (modeCore(t)) addEnt({kind:'core', team:t, x:CORE[t].x, z:CORE[t].z, r:5.5, hp:G.mode === 'siege' ? 5000 : 3600, maxHp:G.mode === 'siege' ? 5000 : 3600, rng:17, mesh:mkCore(t)});
   }
   const allies = CKEYS.filter(k => k !== playerKey).sort(() => Math.random() - 0.5).slice(0, 2);
   const foes = CKEYS.slice().sort(() => Math.random() - 0.5).slice(0, 3);
-  const mk = (key, team, lane, isP) => {
-    const d = CMDS[key];
-    return addEnt({kind:'cmd', key, team, lane, isP, x:SPAWN[team].x + rnd(-3,3), z:SPAWN[team].z + rnd(-3,3), r:1.4, hp:d.hp, maxHp:d.hp,
-      atk:d.atk, rng:d.rng, spd:d.spd, qT:0, rT:0, eT:0, lvl:1, xp:0, arm:{}, spent:0, st:{kills:0, deaths:0, solK:0, solL:0, towers:0, dmg:0, earned:300}, frenzyT:0, gold:300, builds:0, respawn:0, aiT:0, buildT:rnd(20, 40),
-      facing:team ? Math.PI*0.75 : -Math.PI*0.25, faceS:team ? Math.PI*0.75 : -Math.PI*0.25, grp:[newGrp(), newGrp()], golemT:0, chargeAll:0, cmdA:0, streak:0, mesh:bake(mkCommander(key, team))});
-  };
+  const mk = mkCmdEnt;
   if (lineup === 'net') player = null;
   else if (lineup) {   // online match on the server: humans and AI fill the six slots
     player = netDummy();
-    for (const L of lineup) { const c = mk(L.key, L.team, LKEYS[L.slot], false); if (L.cid) { c.net = true; c.cid = L.cid; c.name = L.name; c.sk = L.sk || ''; c.skU = L.skU || {}; } else { c.smart = true; aiPickUnits(c); } }
+    for (const L of lineup) { if (G.mode === 'survival' && L.team === 1) continue; const c = mk(L.key, L.team, LKEYS[L.slot], false); if (L.cid) { c.net = true; c.cid = L.cid; c.name = L.name; c.sk = L.sk || ''; c.skU = L.skU || {}; } else { c.smart = true; aiPickUnits(c); } }
   } else {
   player = mk(playerKey, 0, 'mid', true);
   const ac2 = [mk(allies[0], 0, 'top'), mk(allies[1], 0, 'bot')];
-  const fc = [mk(foes[0], 1, 'top'), mk(foes[1], 1, 'mid'), mk(foes[2], 1, 'bot')];
+  const fc = G.mode === 'survival' ? [] : [mk(foes[0], 1, 'top'), mk(foes[1], 1, 'mid'), mk(foes[2], 1, 'bot')];
   for (const c of ac2) rankAI(c, true);
   for (const c of fc) rankAI(c, false);
   for (const c of [...ac2, ...fc]) aiPickUnits(c);
   }
   for (const c of cmds()) skinCmd(c);
+  modeSetup();
   for (const c of cmds()) for (const k of [0, 1]) intel[1 - c.team][ik(c, k)] = {st:0, hint:''};
   G.markers = [mkMarker(0), mkMarker(1)];
   G.aura = ring(15.5, 16, C.gold, 0.25); world.add(G.aura);
-  G.ind = mkInd(); G.sps = SPTS.map(s => mkSP(s));
+  G.ind = mkInd(); G.sps = modeSPTS(G.mode).map(s => mkSP(s));
   refreshProt();
   phase = 'muster';
   $('lobby').classList.add('hidden');
   if (lineup === 'net') return;
   buildHud();
   showMuster();
+}
+function mkCmdEnt(key, team, lane, isP) {
+  const d = CMDS[key];
+  return addEnt({kind:'cmd', key, team, lane, isP, x:SPAWN[team].x + rnd(-3,3), z:SPAWN[team].z + rnd(-3,3), r:1.4, hp:d.hp, maxHp:d.hp,
+    atk:d.atk, rng:d.rng, spd:d.spd, qT:0, rT:0, eT:0, lvl:1, xp:0, arm:{}, spent:0, st:{kills:0, deaths:0, solK:0, solL:0, towers:0, dmg:0, earned:300}, frenzyT:0, gold:300, builds:0, respawn:0, aiT:0, buildT:rnd(20, 40),
+    facing:team ? Math.PI*0.75 : -Math.PI*0.25, faceS:team ? Math.PI*0.75 : -Math.PI*0.25, grp:[newGrp(), newGrp()], golemT:0, chargeAll:0, cmdA:0, streak:0, mesh:bake(mkCommander(key, team))});
 }
 function spawnSquad(c, k, half) {
   const g = c.grp[k], U = UNITS[g.utype];
@@ -1715,6 +1744,7 @@ function order(c, sel, type, pt, face, silent, target) {
     if (type === 'ambush') for (const s of g.mem) s.ambushHit = true;
   });
   if (c === player && !silent) { say(c, type); horn(); c.cmdA = 0.8; G.stats.orders++; updateCmdHud(); }
+  if ((c === player || c.net) && !silent && !c.ultP) doAct(c, 'order');
   return true;
 }
 function setForm(c, sel, form, silent) {
@@ -1915,6 +1945,7 @@ function frontOf(t, src, f) { const dx = src.x - t.x, dz = src.z - t.z, L = Math
 function hurt(t, amt, src, opt = {}) {
   if (NET.client) return;
   if (t.dead || (t.kind === 'cmd' && t.respawn > 0)) return;
+  if (t.kind === 'core' && t.prot && G.mode === 'conquest') return;
   let m = 1;
   const su = src && src.kind === 'sol' ? src.utype : null, tu = t.kind === 'sol' ? t.utype : null;
   if (su && tu) { if (STRONG[su].includes(tu)) m *= 1.5; else if (STRONG[tu].includes(su)) m *= 0.75; }
@@ -1996,7 +2027,8 @@ function kill(t, src) {
   if (t.kind === 'cmd') {
     if (bounty) toast(`${own ? CMDS[own.key].n : '眾軍'}終結了${CMDS[t.key].n}的懸賞（+${bounty}）`, own && own.team === 0 ? 'g' : 'r');
     t.streak = 0; if (own && own.kind === 'cmd' && own.team !== t.team) { own.streak++; if (own.streak === 2 && own.team === 1) toast(`敵方${CMDS[own.key].n}連勝中，懸賞 ${own.streak*100}`, 'b'); }
-    t.respawn = (8 + G.time/60)*(G.behind === t.team ? 0.6 : 1); t.dead = false; t.hp = 0; t.mesh.visible = false; world.add(t.mesh); t.lowSaid = false;
+    if (t.boss) bossFell(t);
+    t.respawn = t.boss ? 1e9 : (8 + G.time/60)*(G.behind === t.team ? 0.6 : 1)*runeCdr(t)*modeRespawn(t); t.dead = false; t.hp = 0; t.mesh.visible = false; world.add(t.mesh); t.lowSaid = false;
     G.rpick = null;
     if (t === player) { G.stats.deaths++; say(t, 'death', true); toast('你的指揮官陣亡，部隊撤回出生點。復活前可以免費重新整編', 'r'); cancelAim(); cancelOAim(); cancelPlace(); cancelDemo(); G.rpick = [player.grp[0].utype, player.grp[1].utype]; showRespawnMuster(); }
     else if (own === player) { G.stats.kills++; say(player, 'kill', true); toast(`擊殺敵方指揮官 ${CMDS[t.key].n}`, 'g'); }
@@ -2065,7 +2097,8 @@ function addZone(z) {
   else if (z.kind === 'sweep') {
     const g = new THREE.Group(); const pl = new THREE.Mesh(new THREE.PlaneGeometry(z.w, z.len), new THREE.MeshBasicMaterial({color:col, transparent:true, opacity:0.25, depthWrite:false, side:THREE.DoubleSide})); pl.rotation.x = -Math.PI/2; pl.position.z = z.len/2; g.add(pl); g.rotation.y = z.f;
     z.mesh.add(ring(z.r - 0.3, z.r, col, 0.9)); z.mesh.add(g); z.mover = z.mesh.children[0];
-  } else { z.mesh.add(ring(z.r - 0.4, z.r, col, 0.85)); z.mesh.add(disc(z.r, col, 0.14)); }
+  } else if (isUlt(z.kind)) ultBuild(z);
+  else { z.mesh.add(ring(z.r - 0.4, z.r, col, 0.85)); z.mesh.add(disc(z.r, col, 0.14)); }
   if (z.kind === 'wall') for (let i = 0; i < 9; i++) { const a = i/9*Math.PI*2; add(z.mesh, B(1.6, 2.2, 0.8), MT(P.stone), Math.sin(a)*z.r*0.85, 1.1, Math.cos(a)*z.r*0.85, 0, a); }
   if (z.kind === 'meteor' || z.kind === 'boulder') z.rock = add(z.mesh, IC(z.kind === 'meteor' ? (z.big ? 2.6 : 1.2) : 0.9), z.kind === 'meteor' ? MT('#7A4A9A', {e:'#C9A0FF', ei:0.6}) : MT('#5A6B6E', {e:'#6FE0E8', ei:0.5}), 0, 30, 0);
   if (z.kind === 'frost') for (let i = 0; i < 10; i++) { const a = i/10*Math.PI*2; add(z.mesh, CO(0.3, 1.6, 4), MT('#BFE8F6', {e:'#6FC8E8', ei:0.4, op:0.85}), Math.sin(a)*z.r*0.6, 0.6, Math.cos(a)*z.r*0.6); }
@@ -2081,7 +2114,7 @@ function castSkill(c, slot, p, tgt) {
   if (slot === 'e' && c.lvl < 6) return false;
   const k = c.key, sp = CSK[k][slot];
   if (sp.t === 'circle') p = clampPt(c, p || aimPoint(c, sp.range), sp.range);
-  if (slot === 'e') { p = p || aimPoint(c, sp.range || sp.len || 10); if (!castE(c, p, tgt)) return false; }
+  if (slot === 'e') { if (c.ultP) return false; p = p || aimPoint(c, sp.range || sp.len || 10); if (!ultStart(c, p, tgt)) return false; }
   else if (slot === 'q') {
     if (k === 'valen') addZone({kind:'wall', team:c.team, x:p.x, z:p.z, r:5, dur:TV(c, 'v_q1', 4, 7), dps:TV(c, 'v_q2', 0, 30), owner:c, color:'#C9B48A'});
     if (k === 'sylvie') addZone({kind:'rain', team:c.team, x:p.x, z:p.z, r:6, dur:2, owner:c, dmg:TV(c, 's_q1', 13, 20)});
@@ -2105,7 +2138,7 @@ function castSkill(c, slot, p, tgt) {
     }
   }
   if (p && (c === player || c.net)) c.facing = Math.atan2(p.x - c.x, p.z - c.z) || c.facing;
-  c[slot + 'T'] = skCd(c, slot); c.cmdA = 0.6; say(c, slot === 'e' ? 'r' : slot, true);
+  c[slot + 'T'] = skCd(c, slot); c.cmdA = 0.6; if (slot !== 'e') doAct(c, ACTS[k][slot]); say(c, slot === 'e' ? 'r' : slot, true);
   if (c === player) G.stats.skills++;
   return true;
 }
@@ -2159,7 +2192,8 @@ function zoneHits(z, fn, opts = {}) {
 function updateZones(dt) {
   for (const z of zones) {
     z.t += dt;
-    if (z.rock) { const k = Math.min(1, z.t/(z.delay || 1)); z.rock.position.y = 30*(1 - k) + 1; z.rock.rotation.x += dt*4; }
+    if (z.ux) ultAnim(z, dt);
+    if (z.rock && !boulderArc(z)) { const k = Math.min(1, z.t/(z.delay || 1)); z.rock.position.y = 30*(1 - k) + 1; z.rock.rotation.x += dt*4; }
     if (!z.live && z.delay && z.t >= z.delay) {
       z.live = true; zoneImpact(z);
       if (z.kind === 'meteor') zoneHits(z, e => { hurt(e, z.dmg || 140, z.owner, {aoe:true}); e.stunT = Math.max(e.stunT, z.stun || 1); }, {bld:true});
@@ -2187,9 +2221,9 @@ function updateZones(dt) {
       if (z.mover) z.mover.position.set(cx - z.x, 0.12, cz - z.z);
       zoneHits(z, e => { if (z.hit.has(e.id)) return; z.hit.add(e.id); hurt(e, z.dmg, z.owner, {aoe:true}); knock(e, null, z.kb, z.f); if (z.stun) e.stunT = Math.max(e.stunT, z.stun); }, {cx, cz, pad:true});
     }
-    if (z.mesh) { const k = z.dur - z.t < 0.5 ? Math.max(0, (z.dur - z.t)/0.5) : 1; z.mesh.traverse(o => { if (o.material && o.material.transparent && o.material.userData.base === undefined) o.material.userData.base = o.material.opacity; if (o.material && o.material.userData.base !== undefined) o.material.opacity = o.material.userData.base*k*(z.live || o === z.rock ? 1 : 0.5); }); }
+    if (z.mesh && !z.ux) { const k = z.dur - z.t < 0.5 ? Math.max(0, (z.dur - z.t)/0.5) : 1; z.mesh.traverse(o => { if (o.material && o.material.transparent && o.material.userData.base === undefined) o.material.userData.base = o.material.opacity; if (o.material && o.material.userData.base !== undefined) o.material.opacity = o.material.userData.base*k*(z.live || o === z.rock ? 1 : 0.5); }); }
   }
-  for (const z of zones) if (z.t >= z.dur) { z.dead = true; world.remove(z.mesh); }
+  for (const z of zones) if (z.t >= z.dur) { z.dead = true; world.remove(z.mesh); ultDispose(z); }
   zones = zones.filter(z => !z.dead);
 }
 function slow(e, f, t) { if (e.kind === 'sol' && UNITS[e.utype].fly && f < 0.7) return; if (f >= e.slowF || e.slowT <= 0) { e.slowF = f; e.slowT = t; } }
@@ -2199,7 +2233,8 @@ function canPlace(c, type, x, z) {
   if (!unl('b:' + type)) return `${BUILDS[type].n}在軍階 ${rankNeed('b:' + type)} 解鎖`;
   const Bd = BUILDS[type];
   if (c.gold < bcost(c, type)) return '軍資不足';
-  if (c.builds >= 4) return '建築已達上限 4 座';
+  if (c.builds >= BCAP) return `建築已達上限 ${BCAP} 座`;
+  if (type === 'rune' && runeOf(c, true)) return '每位指揮官只能有 1 座重生法陣';
   if (type === 'barracks' && ents.some(e => e.kind === 'bld' && !e.dead && e.type === 'barracks' && e.team === c.team)) return '每隊只能有 1 座前線兵營';
   if (Math.abs(x) > 96 || Math.abs(z) > 96) return '超出地圖';
   if (Math.abs(x - z)/SQ2 < 10) return '不能建在河道或橋上';
@@ -2268,14 +2303,26 @@ function showRespawnMuster() {
     if (!G.rpick) return;
     const rp = G.rpick;
     const slot = k => `<button type="button" class="slotb ${ks === k ? 'on' : ''}" data-slot="${k}">${icon(rp[k], 44)}<span><strong style="color:${GCOL[k]}">第 ${GNUM[k]} 隊</strong><small>${UNITS[rp[k]].n}${rp[k] === player.grp[k].utype ? '・保留，補滿兵力' : '・改換，星級歸零'}</small></span></button>`;
+    const rn = runeOf(player), on = !!(rn && G.useRune !== false);
+    const rsel = rn ? `<div class="seg rseg" role="tablist"><button type="button" class="${on ? 'on' : ''}" data-rune="1">${glyph('rune', 18, on ? '#1A1408' : C.ink)} 在重生法陣復活・不能整編</button><button type="button" class="${on ? '' : 'on'}" data-rune="0">${glyph('core', 18, on ? C.ink : '#1A1408')} 回主堡復活・可整編</button></div>` : '';
+    if (on) {
+      modal.innerHTML = `<div class="sheet"><div class="bar"><div style="display:flex;flex-direction:column;gap:6px;flex:1"><span class="kick">重生法陣已啟用</span><h1>在重生法陣復活</h1>
+       <p>復活時直接出現在你的重生法陣，兩隊補滿兵力、恢復士氣，但<b>不能整編</b>：保持 ${UNITS[player.grp[0].utype].n} ＋ ${UNITS[player.grp[1].utype].n}。想換兵種就改回主堡復活。</p></div>
+       <div style="text-align:center"><div class="count" id="rcount">${Math.ceil(player.respawn)}</div><div class="sub" style="color:var(--muted);font-size:12px">秒後復活</div></div></div>
+       ${rsel}<div class="bar"><button type="button" class="go" id="okR">確定</button></div></div>`;
+      modal.querySelectorAll('[data-rune]').forEach(b => b.onclick = () => { setRune(b.dataset.rune === '1'); draw(); });
+      $('okR').onclick = () => { G.rmOpen = false; closeModal(); };
+      return;
+    }
     modal.innerHTML = `<div class="sheet"><div class="bar"><div style="display:flex;flex-direction:column;gap:6px;flex:1"><span class="kick">陣亡整編・免費・敵方看不到你的選擇</span><h1>復活時重新整軍</h1>
      <p>復活時兩隊都會補滿兵力、恢復士氣、整編冷卻歸零。保留原兵種的隊伍保有老兵星級；改換兵種的隊伍星級歸零，敵方對該隊的情報也會重置。</p></div>
      <div style="text-align:center"><div class="count" id="rcount">${Math.ceil(player.respawn)}</div><div class="sub" style="color:var(--muted);font-size:12px">秒後復活</div></div></div>
-     <div class="slots2">${slot(0)}${slot(1)}</div>
+     ${rsel}<div class="slots2">${slot(0)}${slot(1)}</div>
      <h2>第 ${GNUM[ks]} 隊的兵種</h2>
      <div class="grid">${unitsFor(player).map(u => unitCard(u, u === rp[ks], u === player.grp[ks].utype ? '目前兵種' : '')).join('')}</div>
      <div class="bar"><button type="button" class="go" id="okR">確定：${UNITS[rp[0]].n} ＋ ${UNITS[rp[1]].n}</button><button type="button" class="go alt" id="keepR">保持原兵種</button></div></div>`;
     modal.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { ks = +b.dataset.slot; draw(); });
+    modal.querySelectorAll('[data-rune]').forEach(b => b.onclick = () => { setRune(b.dataset.rune === '1'); draw(); });
     modal.querySelectorAll('[data-u]').forEach(b => b.onclick = () => { G.rpick[ks] = b.dataset.u; if (ks === 0) ks = 1; draw(); });
     $('okR').onclick = () => { G.rmOpen = false; closeModal(); toast(`復活時整編為 ${UNITS[G.rpick[0]].n} ＋ ${UNITS[G.rpick[1]].n}`, 'g'); };
     $('keepR').onclick = () => { G.rpick = [player.grp[0].utype, player.grp[1].utype]; G.rmOpen = false; closeModal(); };
@@ -2389,20 +2436,25 @@ function updateCommander(c, dt) {
   if (c.respawn > 0) {
     c.respawn -= dt;
     if (c.respawn <= 0) {
-      c.respawn = 0; c.hp = c.maxHp; c.x = SPAWN[c.team].x + rnd(-3,3); c.z = SPAWN[c.team].z + rnd(-3,3); c.mesh.visible = true;
-      const picks = c === player ? (G.rpick || [c.grp[0].utype, c.grp[1].utype]) : c.net ? (c.rpick || [c.grp[0].utype, c.grp[1].utype]) : aiRespawnPicks(c);
+      const rn = runeOf(c), useR = !!(rn && runeOn(c));
+      c.respawn = 0; c.hp = c.maxHp; c.mesh.visible = true;
+      // start the new life with no stale movement input (a key released while dead must not keep the commander walking)
+      if (c === player && !SVR) releaseKeys(); c.netMv = null;
+      if (useR) { c.x = rn.x + rnd(-2, 2); c.z = rn.z + rnd(-2, 2); runeFx(rn); } else { c.x = SPAWN[c.team].x + rnd(-3,3); c.z = SPAWN[c.team].z + rnd(-3,3); }
+      const picks = useR ? [c.grp[0].utype, c.grp[1].utype] : c === player ? (G.rpick || [c.grp[0].utype, c.grp[1].utype]) : c.net ? (c.rpick || [c.grp[0].utype, c.grp[1].utype]) : aiRespawnPicks(c);
       c.rpick = null;
       refreshSquads(c, picks);
-      if (c === player) { if (G.rmOpen) closeModal(); G.rmOpen = false; G.rpick = null; toast(`指揮官重回戰場，兩隊已補滿：第 I 隊 ${UNITS[c.grp[0].utype].n}、第 II 隊 ${UNITS[c.grp[1].utype].n}`, 'b'); say(c, 'start', true); updateCmdHud(); }
+      if (c === player) { if (G.rmOpen) closeModal(); G.rmOpen = false; G.rpick = null; toast(`${useR ? '從重生法陣復活' : '指揮官重回戰場'}，兩隊已補滿：第 I 隊 ${UNITS[c.grp[0].utype].n}、第 II 隊 ${UNITS[c.grp[1].utype].n}`, 'b'); say(c, 'start', true); updateCmdHud(); }
     }
     return;
   }
   statusTick(c, dt);
   for (const k of ['qT','rT','eT','golemT','cmdA','frenzyT']) if (c[k] > 0) c[k] -= dt;
+  ultTick(c, dt);
   cmdXp(c, 1.0*dt);
   baseTick(c, dt);
   if (c.respawn > 0) return;
-  c.gold += (3 + G.sps.filter(s => s.k === 'granary' && s.owner === c.team).length*3)*dt*(G.behind === c.team ? 1.5 : 1);
+  c.gold += (3 + G.sps.filter(s => s.k === 'granary' && s.owner === c.team).length*3)*dt*(G.behind === c.team ? 1.5 : 1)*(c.inc || 1);
   if (c.isP) { const v = inputVec(); if (v && c.stunT <= 0 && c.rootT <= 0) { moveTo(c, c.x + v.x*5, c.z + v.z*5, dt); if (G.freeCam) { G.freeCam = null; $('camlab').classList.add('hidden'); } } }
   else if (c.net) { const v = c.netMv; if (v && (v.x || v.z) && c.stunT <= 0 && c.rootT <= 0) moveTo(c, c.x + v.x*5, c.z + v.z*5, dt); }
   else ai(c, dt);
@@ -2429,7 +2481,7 @@ function ai(c, dt) {
   c.aiT = 0.3;
   const hpR = c.hp/c.maxHp, base = SPAWN[c.team];
   const laneDone = !ents.some(o => o.kind === 'tow' && !o.dead && o.team !== c.team && o.lane === c.lane);
-  if ((c.team === 0 ? laneDone : G.time > 720) && (c.laneT = (c.laneT || 0) - 0.3) <= 0) {
+  if (modeLaneSwitch(c) && (c.team === 0 ? laneDone : G.time > 720) && (c.laneT = (c.laneT || 0) - 0.3) <= 0) {
     c.laneT = 20; let best = c.lane, bn = 9;
     for (const l of LKEYS) { const n = ents.filter(o => o.kind === 'tow' && !o.dead && o.team !== c.team && o.lane === l).length; if (n < bn) { bn = n; best = l; } }
     c.lane = best;
@@ -2475,6 +2527,7 @@ function aiFight(c, foe) {
   }
 }
 function aiLane(c, Pl, pr) {
+  if (modeAiLane(c, Pl, pr)) return;
   {
     c.tgt = findTarget(c, c.x, c.z, 16);
     let ahead = lpoint(Pl, pr.s + 10), push = false;
@@ -2497,6 +2550,11 @@ function aiLane(c, Pl, pr) {
       if (c.smart) { if (push && tw && dist(c, tw) < 24) aiOrder(c, k, 'focus', {x:tw.x, z:tw.z}, undefined, tw); else if (c.grp[k].order !== 'rally') order(c, k, 'rally', null, undefined, true); continue; }
       if (c.grp[k].order !== want) order(c, k, want, null, undefined, true);
     }
+    aiBuildTick(c, Pl, pr);
+  }
+}
+function aiBuildTick(c, Pl, pr) {
+  {
     c.buildT -= 0.3;
     if (c.buildT <= 0) {
       c.buildT = rnd(30, 50);
@@ -2508,7 +2566,8 @@ function aiLane(c, Pl, pr) {
       if (!opts.length) opts = BKEYS.filter(okB);
       let type = opts.length ? pick(opts) : null;
       if (known.includes('cav') && okB('cheval')) type = 'cheval'; if (known.includes('griffin') && okB('arrowtower')) type = 'arrowtower'; if (known.includes('scout') && okB('watch')) type = 'watch';
-      if (type && c.smart && c.builds >= 4 && c.gold >= BUILDS[type].cost + 60) aiRecycle(c);
+      if (okB('rune') && !runeOf(c, true) && Math.random() < 0.45) type = 'rune';
+      if (type && c.smart && c.builds >= BCAP && c.gold >= BUILDS[type].cost + 60) aiRecycle(c);
       if (type && c.gold >= BUILDS[type].cost + 60) { const back = lpoint(Pl, pr.s - 6); place(c, type, back.x + rnd(-5,5), back.z + rnd(-5,5)); }
     }
   }
@@ -2599,7 +2658,7 @@ function aiPrey(c, k, foe) {
   return best || foe;
 }
 function aiRecycle(c) {
-  const mine = ents.filter(e => e.kind === 'bld' && !e.dead && e.owner === c);
+  const mine = ents.filter(e => e.kind === 'bld' && !e.dead && e.owner === c && e.type !== 'rune');
   if (!mine.length) return;
   const sc = e => Math.hypot(e.x - c.x, e.z - c.z) + (e.built ? 0 : -999);
   demolish(mine.sort((a, b) => sc(b) - sc(a))[0]);
@@ -2770,7 +2829,7 @@ function updateSoldier(s, dt) {
 function updateMinion(m, dt) {
   statusTick(m, dt); baseTick(m, dt); if (m.dead) return;
   m.atkT -= dt;
-  if (m.guard) { const home = CORE[m.team], tg = findTarget(m, home.x, home.z, 24); if (tg) { if (dist(m, tg) <= m.rng + tg.r + 0.3) { if (m.atkT <= 0 && m.stunT <= 0) { doAttack(m, tg); m.atkT = 1.0; } m.facing = Math.atan2(tg.x - m.x, tg.z - m.z); } else moveTo(m, tg.x, tg.z, dt); } else moveTo(m, m.post.x, m.post.z, dt); return; }
+  if (m.guard) { const home = m.home || CORE[m.team], tg = findTarget(m, home.x, home.z, m.hr || 24); if (tg) { if (dist(m, tg) <= m.rng + tg.r + 0.3) { if (m.atkT <= 0 && m.stunT <= 0) { doAttack(m, tg); m.atkT = 1.0; } m.facing = Math.atan2(tg.x - m.x, tg.z - m.z); } else moveTo(m, tg.x, tg.z, dt); } else moveTo(m, m.post.x, m.post.z, dt); return; }
   const t = findTarget(m, m.x, m.z, 9);
   if (t) { if (dist(m, t) <= m.rng + t.r + 0.3) { if (m.atkT <= 0 && m.stunT <= 0) { doAttack(m, t); m.atkT = 1.2; } m.facing = Math.atan2(t.x - m.x, t.z - m.z); } else moveTo(m, t.x, t.z, dt); }
   else { const Pl = POLY[m.team][m.lane], pr = lproj(Pl, m.x, m.z), p = lpoint(Pl, pr.s + 6); moveTo(m, p.x + m.off, p.z + m.off, dt); }
@@ -2797,14 +2856,15 @@ function updateBuilding(b, dt) {
 function refreshProt() {
   const alive = {};
   for (const o of ents) if (o.kind === 'tow' && !o.dead) { const k = o.team + o.lane; alive[k] = Math.min(alive[k] || 9, o.tier); }
-  for (const o of ents) { if (o.kind === 'tow') o.prot = (alive[o.team + o.lane] || 9) < o.tier; else if (o.kind === 'core') o.prot = LKEYS.every(l => alive[o.team + l]); }
+  for (const o of ents) { if (o.kind === 'tow') o.prot = (alive[o.team + o.lane] || 9) < o.tier; else if (o.kind === 'core') o.prot = G.mode === 'conquest' || LKEYS.every(l => alive[o.team + l]); }
 }
 function spawnWave() {
   const sc = 1 + G.time/480;
   for (const t of [0,1]) for (const l of LKEYS) {
+    if (!modeMinions(t)) continue;
     const broken = !ents.some(o => o.kind === 'tow' && !o.dead && o.team !== t && o.lane === l);
-    for (let i = 0; i < (broken ? 6 : 4); i++) {
-      const ranged = i === 3, sup = i >= 4, st = lpoint(POLY[t][l], 14 + i*1.6), hp = (sup ? 650 : ranged ? 120 : 180)*sc;
+    for (let i = 0; i < (G.mode === 'siege' ? 6 : broken ? 6 : 4); i++) {
+      const ranged = i === 3, sup = i >= 4 && !(G.mode === 'siege' && i === 5 && G.time < 240), st = lpoint(POLY[t][l], 14 + i*1.6), hp = (sup ? 650 : ranged ? 120 : 180)*sc;
       addEnt({kind:'min', team:t, lane:l, x:st.x + rnd(-1,1), z:st.z + rnd(-1,1), r:sup ? 1 : 0.6, hp, maxHp:hp, atk:(sup ? 28 : ranged ? 11 : 9)*sc, rng:ranged ? 9 : 1.8, ranged, sup, spd:6, off:rnd(-1.5,1.5), mesh:bake(mkMinion(t, ranged, sup))});
     }
   }
@@ -2838,7 +2898,7 @@ function update(dt) {
       }
     }
   }
-  refreshProt(); groupFrame(dt); strategicTick(dt);
+  refreshProt(); groupFrame(dt); strategicTick(dt); modeTick(dt);
   for (const e of ents) {
     if (e.dead) continue;
     if (e.kind === 'cmd') updateCommander(e, dt); else if (e.kind === 'sol') updateSoldier(e, dt); else if (e.kind === 'min') updateMinion(e, dt);
@@ -2853,7 +2913,7 @@ function update(dt) {
 // ================= strategy layer: strongpoints, morale, veterancy, comeback, neutral objectives =================
 function mkSP(s) {
   const o = Object.assign({}, s, {prog:0, owner:-1, contest:false, arc:null});
-  o.mesh = s.k === 'granary' ? mkGranary() : mkBeacon();
+  o.mesh = s.k === 'granary' ? mkGranary() : s.k === 'flag' ? mkFlagPt() : mkBeacon();
   o.mesh.position.set(s.x, 0, s.z); o.mesh.rotation.y = s.x > 0 ? Math.PI : 0; world.add(o.mesh);
   o.base = ring(6.6, 7.0, '#CFC6B2', 0.55); o.base.position.set(s.x, s.k === 'beacon' ? 2.85 : 0.35, s.z); world.add(o.base);
   updateSPVisual(o);
@@ -2955,7 +3015,7 @@ function updateAllyDragon(d, dt) {
 }
 function strategicTick(dt) {
   for (const t of [0, 1]) { if (G.buff[t].titan > 0) G.buff[t].titan -= dt; if (G.coreShield[t] > 0) G.coreShield[t] -= dt; }
-  for (const key of ['titan', 'dragon']) { const o = G.obj[key]; if (!o.ent && G.time >= o.t && unl('obj')) spawnNeutral(key); }
+  for (const key of ['titan', 'dragon']) { const o = G.obj[key]; if (!o.ent && G.time >= o.t && unl('obj') && G.mode !== 'conquest') spawnNeutral(key); }
   for (const t of [0, 1]) {
     const core = ents.find(e => e.kind === 'core' && e.team === t);
     if (core && !core.dead && !core.prot && !G.lastStand[t]) {
@@ -2973,7 +3033,7 @@ function strategicTick(dt) {
     if (s.prog >= 100) s.owner = 0; else if (s.prog <= -100) s.owner = 1; else if ((s.owner === 0 && s.prog <= 0) || (s.owner === 1 && s.prog >= 0)) s.owner = -1;
     if (s.owner !== prev) {
       updateSPVisual(s);
-      if (s.owner >= 0) { toast(`${s.owner === 0 ? '我方' : '敵方'}佔領了${s.n}（${s.k === 'granary' ? '軍資收入提升' : '視野與遠程加成'}）`, s.owner === 0 ? 'g' : 'r'); if (s.owner === 0) G.stats.caps++; }
+      if (s.owner >= 0) { toast(`${s.owner === 0 ? '我方' : '敵方'}佔領了${s.n}（${s.k === 'granary' ? '軍資收入提升' : s.k === 'flag' ? '每秒得分' : '視野與遠程加成'}）`, s.owner === 0 ? 'g' : 'r'); if (s.owner === 0) G.stats.caps++; }
       else toast(`${s.n}恢復中立`, '');
     }
     s.vt = (s.vt || 0) - dt; if (s.vt <= 0) { s.vt = 0.15; updateSPRing(s); }
@@ -3038,6 +3098,7 @@ function render(dt) {
     if (e.kind === 'cmd' || e.kind === 'sol' || e.kind === 'min' || e.kind === 'neu' || e.kind === 'drg') {
       let d = (e.facing || 0) - e.mesh.rotation.y; while (d > Math.PI) d -= Math.PI*2; while (d < -Math.PI) d += Math.PI*2;
       e.mesh.rotation.y += d*Math.min(1, dt*10);
+      if (e.kind === 'cmd' && e.actSeq !== e.mesh.userData.actSeq) { e.mesh.userData.actSeq = e.actSeq; if (e.mesh.userData.art) e.mesh.userData.art.nextAct = e.actN; }
       animModel(e.mesh, e.mv > 0.5, tAll + e.id*0.37, e.atkA, e.kind === 'cmd' ? e.cmdA : 0, e.sv);
     } else animModel(e.mesh, false, tAll + e.id, 0, 0);
   }
@@ -3223,6 +3284,7 @@ function updateHud() {
   const alive = t => ents.filter(e => e.kind === 'tow' && !e.dead && e.team === t).length;
   $('tb').innerHTML = glyph('t1', 20, C.blue) + alive(0); $('tr').innerHTML = alive(1) + glyph('t1', 20, C.red);
   $('clock').textContent = fmt(G.time);
+  modeHud();
   const ob = $('objbar'); if (ob) {
     const parts = [];
     if (unl('obj')) for (const [key, nm] of [['titan', '遠古泰坦'], ['dragon', '深淵巨龍']]) { const o = G.obj[key]; parts.push(`<span class="ob">${glyph(key === 'titan' ? 't3' : 'core', 16, C.neutral)}${nm} ${o.ent ? `<b>出現中 ${Math.round(o.ent.hp/o.ent.maxHp*100)}%</b>` : fmt(Math.max(0, o.t - G.time))}</span>`); }
@@ -3233,7 +3295,7 @@ function updateHud() {
     const caps = [0, 1].map(t => G.sps.filter(s => s.owner === t).length); parts.push(`<span class="ob">據點 <b style="color:${C.blue}">${caps[0]}</b> : <b style="color:${C.red}">${caps[1]}</b></span>`);
     ob.innerHTML = parts.join('');
   }
-  $('res').innerHTML = `${glyph('gold', 22, C.gold)}${Math.floor(c.gold)}${anyB() ? `<small>建築 ${c.builds}/4</small>` : ''}`;
+  $('res').innerHTML = `${glyph('gold', 22, C.gold)}${Math.floor(c.gold)}${anyB() ? `<small>建築 ${c.builds}/${BCAP}</small>` : ''}`;
   for (const b of document.querySelectorAll('.bb[data-b]')) { b.classList.toggle('no', c.gold < BUILDS[b.dataset.b].cost); b.classList.toggle('sel', G.placing === b.dataset.b); }
   const setCd = (id, v) => { const el = $(id); if (el) { el.textContent = v > 0 ? Math.ceil(v) : ''; el.style.display = v > 0 ? 'flex' : 'none'; } };
   setCd('cdQ', c.qT); setCd('cdR', c.rT); hudLevel(c, setCd); setCd('cdT', Math.min(c.grp[0].reformT, c.grp[1].reformT));
@@ -3262,9 +3324,20 @@ function toggleDeploy() {
 
 // ================= input =================
 const keys = {};
+// the physical key decides, not e.key: with a 注音 / Chinese IME (Shift switches it) or Caps Lock the keyup can report
+// a different e.key ('Process', 'ㄊ', 'W') than the keydown did, which used to leave a movement key held down forever
+const KCODE = {Space:' ', Tab:'tab', Escape:'escape', ArrowUp:'arrowup', ArrowDown:'arrowdown', ArrowLeft:'arrowleft', ArrowRight:'arrowright', Enter:'enter', Backspace:'backspace'};
+function keyOf(e) {
+  const c = e.code || '';
+  if (/^Key[A-Z]$/.test(c)) return c.slice(3).toLowerCase();
+  if (/^(Digit|Numpad)[0-9]$/.test(c)) return c.slice(-1);
+  if (KCODE[c]) return KCODE[c];
+  return (e.key || '').toLowerCase();
+}
+function releaseKeys() { for (const k in keys) keys[k] = false; joyV = null; joyId = null; const j = document.getElementById('joy'); if (j && j.firstElementChild) j.firstElementChild.style.transform = ''; }
 window.addEventListener('keydown', e => {
   ac();
-  const k = e.key.toLowerCase();
+  const k = keyOf(e);
   if (k === 'escape') { if (G && G.aiming) cancelAim(); else if (G && G.oaim) cancelOAim(); else if (G && G.demo) cancelDemo(); else if (G && G.upg) cancelUpg(); else if (G && G.mercOpen) toggleMercs(); else if (G && G.armOpen && phase === 'pause') openArmory(); else if (G && G.placing) cancelPlace(); else if (phase === 'play') showMenu(); else if (phase === 'pause' && $('modal').classList.contains('show')) { closeModal(); phase = 'play'; } return; }
   if (G && phase === 'pause' && ((k === 'j' && G.mercOpen) || (k === 'u' && G.armOpen))) { if (G.mercOpen) toggleMercs(); else openArmory(); return; }
   if (phase !== 'play' || $('modal').classList.contains('show')) return;
@@ -3291,8 +3364,9 @@ window.addEventListener('keydown', e => {
   for (const f of FKEYS) if (FORMS[f].k === k) setForm(player, G.sel, f);
   if (['arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
 });
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+window.addEventListener('keyup', e => { keys[keyOf(e)] = false; if (e.key) keys[e.key.toLowerCase()] = false; });
+window.addEventListener('blur', releaseKeys);
+if (typeof document.addEventListener === 'function') document.addEventListener('visibilitychange', () => { if (document.hidden) releaseKeys(); });
 window.addEventListener('pointerdown', () => ac(), {capture:true});
 let joyV = null, joyId = null;
 function inputVec() {
@@ -3306,7 +3380,7 @@ const joy = $('joy');
 joy.addEventListener('pointerdown', e => { joyId = e.pointerId; joy.setPointerCapture(e.pointerId); joyMove(e); });
 joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyMove(e); });
 const joyEnd = e => { if (e.pointerId === joyId) { joyId = null; joyV = null; joy.firstElementChild.style.transform = ''; } };
-joy.addEventListener('pointerup', joyEnd); joy.addEventListener('pointercancel', joyEnd);
+joy.addEventListener('pointerup', joyEnd); joy.addEventListener('pointercancel', joyEnd); joy.addEventListener('lostpointercapture', joyEnd);
 function joyMove(e) {
   const r = joy.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2;
   let dx = (e.clientX - cx)/(r.width/2), dy = (e.clientY - cy)/(r.height/2); const L = Math.hypot(dx, dy); if (L > 1) { dx /= L; dy /= L; }
@@ -3428,6 +3502,7 @@ function showLobby() {
   $('lnav').onclick = e => { if (e.target.closest('#lexit')) { confirmExitGame(); return; } const b = e.target.closest('[data-t]'); if (b) { ltab = b.dataset.t; showLobby(); } };
   drawLobbyPanel();
   rankUpModal();
+  cloudPull();
 }
 function drawLobbyPanel() {
   const P2 = $('lpanel'), cap = $('lcap');
@@ -3438,11 +3513,12 @@ function drawLobbyPanel() {
     cap.innerHTML = `<div class="t">${d.t}・${d.fac}</div><div class="n">${d.n}</div><div class="hint">拖曳旋轉模型</div>`;
     const grid = `<div class="pick">${CKEYS.map(c => `<button type="button" class="pk ${c === k ? 'on' : ''} ${unlMe('cmd:' + c) ? '' : 'lockd'}" data-c="${c}">${icon(c, 46)}<span>${CMDS[c].n}</span>${unlMe('cmd:' + c) ? '' : `<small class="lk">軍階 ${rankNeed('cmd:' + c)}</small>`}</button>`).join('')}</div>`;
     if (ltab === 'play') {
-      P2.innerHTML = `${rankBar()}<div><div class="kick">出征準備・3 對 3</div><h2>選擇你的指揮官</h2></div>${grid}
+      P2.innerHTML = `${rankBar()}<div><div class="kick">出征準備・${LMODE === 'survival' ? '3 位指揮官守城' : '3 對 3'}・${MODES[LMODE].n}</div><h2>選擇你的指揮官</h2></div>${grid}${modePicker()}
        <div class="roster"><div class="side"><span class="h" style="color:var(--blue)">聖輝聯軍（我方）</span><div class="slot">${icon(k, 30, 0)}<span>${d.n}（你）</span></div><div class="slot">${icon('unknown', 30)}<span style="color:var(--muted)">AI 隊友</span></div><div class="slot">${icon('unknown', 30)}<span style="color:var(--muted)">AI 隊友</span></div></div>
-       <div class="side"><span class="h" style="color:var(--red)">黑曜大軍（敵方）</span>${('<div class="slot">' + icon('unknown', 30, 1) + '<span style="color:var(--muted)">開戰後揭曉</span></div>').repeat(3)}</div></div>
-       <div class="dl"><div><b>規則</b><span>進場後為兩支隊伍各選一種兵種（可相同），推倒三路防禦塔，摧毀敵方主塔獲勝。指揮官不親自攻擊，靠部隊、技能與佈局取勝。</span></div><div><b>戰略</b><span>側擊與背擊、士氣潰散、老兵晉升、搶奪糧倉與烽火台、草叢藏兵${uj('obj', '、討伐泰坦與巨龍')}。</span></div><div><b>翻盤</b><span>落後方獲得逆風加成；擊殺連勝者領懸賞；主塔告急時王城衛隊出陣。</span></div></div>
+       <div class="side"><span class="h" style="color:var(--red)">黑曜大軍（敵方）</span>${LMODE === 'survival' ? '<div class="slot">' + icon('troops', 30, 1) + '<span style="color:var(--muted)">每 40 秒一波，每 5 波敵將帶隊</span></div>' + (PROF.best && PROF.best.survival ? `<div class="slot">${icon('core', 30)}<span style="color:var(--gold)">你的最佳紀錄：撐過 ${PROF.best.survival} 波</span></div>` : '') : ('<div class="slot">' + icon('unknown', 30, 1) + '<span style="color:var(--muted)">開戰後揭曉</span></div>').repeat(3)}</div></div>
+       <div class="dl"><div><b>規則</b><span>${modeRule()}指揮官不親自攻擊，靠部隊、技能與佈局取勝。</span></div><div><b>戰略</b><span>側擊與背擊、士氣潰散、老兵晉升、搶奪糧倉與烽火台、草叢藏兵${uj('obj', '、討伐泰坦與巨龍')}。</span></div><div><b>翻盤</b><span>落後方獲得逆風加成；擊殺連勝者領懸賞；主塔告急時王城衛隊出陣。</span></div></div>
        <div class="bar"><button type="button" class="go" id="goBtn">${glyph('advance', 22, '#1A1408')}以 ${d.n} 出征</button><button type="button" class="go alt" id="tutBtn">${glyph('spyglass', 20)}新手教學</button><button type="button" class="go alt ${unlMe('online') ? '' : 'lockd'}" id="netBtn">${glyph('banner', 20)}線上對戰${unlMe('online') ? '' : `（軍階 ${rankNeed('online')}）`}</button></div>${tutSeen() ? '' : '<p style="color:var(--gold)">第一次玩？建議先完成新手教學（約 3 分鐘，敵軍會等你）。</p>'}`;
+      bindModePicker(P2);
       $('goBtn').onclick = () => { ac(); drum(); lobbySay(k, 'start'); try { localStorage.setItem('fhwz-cmd', k); } catch (e) {} startWhenArt(() => newGame(k)); };
       $('netBtn').onclick = () => { ac(); if (!unlMe('online')) { toast(`線上對戰在軍階 ${rankNeed('online')}「${RANKS[rankNeed('online') - 1].n}」開放：先打幾場單人對戰熟悉操作`, 'r'); return; } openNetLobby(); };
       $('tutBtn').onclick = () => { ac(); drum(); try { localStorage.setItem('fhwz-cmd', k); } catch (e) {} startWhenArt(() => startTutorial(k)); };
@@ -3472,7 +3548,7 @@ function drawLobbyPanel() {
     const b = lsel.bld, Bd = BUILDS[b];
     showModel('bld', b);
     cap.innerHTML = `<div class="t">${Bd.s}</div><div class="n">${Bd.n}</div><div class="hint">拖曳旋轉模型</div>`;
-    P2.innerHTML = `<div><div class="kick">建築圖鑑・9 種</div><h2>${Bd.n}</h2></div>
+    P2.innerHTML = `<div><div class="kick">建築圖鑑・${BKEYS.length} 種</div><h2>${Bd.n}</h2></div>
      ${unl('b:' + b) ? '' : `<div class="lockn">軍階 ${rankNeed('b:' + b)}「${RANKS[rankNeed('b:' + b) - 1].n}」解鎖</div>`}<div class="pick">${BKEYS.map(v => `<button type="button" class="pk ${v === b ? 'on' : ''} ${unl('b:' + v) ? '' : 'lockd'}" data-b="${v}">${icon(v, 44)}<span>${BUILDS[v].n}</span>${unl('b:' + v) ? '' : `<small class="lk">軍階 ${rankNeed('b:' + v)}</small>`}</button>`).join('')}</div>
      <div class="dl"><div><b>造價</b><span>${glyph('gold', 16, C.gold)} ${Bd.cost} 軍資・建造 ${Bd.t} 秒・生命 ${Bd.hp}</span></div><div><b>功能</b><span>${Bd.d}</span></div><div><b>範圍</b><span>${Bd.r ? Bd.r + '（戰場上以地面圓圈標示）' : '無'}</span></div><div><b>搭配</b><span>${UKEYS.filter(u => BPREF[u].includes(b)).map(u => UNITS[u].n).join('、') || '—'}</span></div>${[1, 2, 3, 4, 5].map(l => `<div><b>${l === 1 ? '1 級' : `${l} 級`}</b><span>${l > 1 ? `${glyph('gold', 14, C.gold)} ${upgCostL(b, l - 1)}・` : ''}${bldEff(b, l)}</span></div>`).join('')}</div>
      <p>完工的建築可以按 L 升級${lkTag('upg')}，最高 5 級，每級生命 +25%。戰場上每座建築頭上都會顯示名稱與功能，建造中會顯示進度。自己的建築可以拆除（建造列的「拆除」或 K 鍵）：完工的返還 50% 軍資，建造中的全額退還。</p>`;
@@ -3481,10 +3557,10 @@ function drawLobbyPanel() {
     showModel('core', null);
     cap.innerHTML = `<div class="t">聖輝王國</div><div class="n">主塔</div>`;
     const tg = (k, t, s) => `<button type="button" class="tg" data-s="${k}" aria-pressed="${!!SET[k]}"><span><strong>${t}</strong><small>${s}</small></span><span class="sw"></span></button>`;
-    P2.innerHTML = `<div><div class="kick">設定</div><h2>遊戲設定</h2></div>${setToggles(tg)}
+    P2.innerHTML = `<div><div class="kick">設定</div><h2>遊戲設定</h2></div>${cloudCard()}${setToggles(tg)}
       <button type="button" class="tg" id="vetTg" aria-pressed="${!!PROF.vet}"><span><strong>老手模式：直接開放全部功能</strong><small>跳過軍階逐步解鎖，所有指令、兵種、建築與系統一次開放，AI 對手也用最高強度。軍階經驗照常累積，可隨時關閉</small></span><span class="sw"></span></button>
       <p>AI 隊友與對手的強度會跟著你的指揮官軍階調整。語音使用你裝置上的中文語音；若沒有中文語音，台詞仍會以字幕與專屬聲效呈現。</p>`;
-    bindToggles(P2, () => drawLobbyPanel());
+    bindToggles(P2, () => drawLobbyPanel()); bindCloudCard(P2);
     $('vetTg').onclick = () => { PROFR().vet = !PROF.vet; saveProf(); toast(PROF.vet ? '已開放全部功能' : `回到軍階 ${myRank()}「${RANKS[myRank() - 1].n}」的功能`, 'b'); drawLobbyPanel(); };
   }
 }
@@ -3598,7 +3674,7 @@ function helpHtml() {
     ${K('e', 'E', '第三技能（大招）：指揮官 6 級解鎖')}${K(null, '等級', `擊殺、推塔${uj('obj', '、中立目標')}累積經驗，最高 10 級；每級技能傷害 +5%（對士兵 +2.5%）、${unl('r') ? 'Q／R' : 'Q'} 冷卻 -3%、生命 +6%`)}
     ${K('camps', 'J', '傭兵：站在我方佔領的傭兵營地旁僱用傭兵（清空營地守衛即可佔領）')}${K('talent', '9 / 0', '天賦：3、5、8 級時二選一')}
     ${K('armory', 'U', '軍械庫：在主堡範圍內（或陣亡時）替兵種升級武器與護甲，各 3 級')}${K('upg', 'L', '升級建築：右鍵點已完工的自己建築，最高升到 5 級')}
-    ${K('reform', 'T', `整編：在${reformWhere()}更換某隊兵種`)}${anyB() ? K(null, '建造列', '點選建築後點地面放置') : ''}${K('team', '左上隊友', '點「支援」叫隊友到你身邊 30 秒；點分路標籤改派他去下一路')}${K(null, '陣亡時', '可免費重新整編，復活時兩隊補滿兵力')}${anyB() ? K(null, 'K', '拆除：右鍵點自己的建築（完工返還 50%、建造中全額退還），騰出建築上限') : ''}
+    ${K('reform', 'T', `整編：在${reformWhere()}更換某隊兵種`)}${anyB() ? K(null, '建造列', '點選建築後點地面放置') : ''}${K('team', '左上隊友', '點「支援」叫隊友到你身邊 30 秒；點分路標籤改派他去下一路')}${K(null, '陣亡時', `可免費重新整編，復活時兩隊補滿兵力${unl('b:rune') ? '；若啟用重生法陣則在法陣復活，但不能整編' : ''}`)}${anyB() ? K(null, 'K', '拆除：右鍵點自己的建築（完工返還 50%、建造中全額退還），騰出建築上限') : ''}
     ${K(null, '小地圖', '左鍵移動鏡頭、右鍵派選定隊伍前往')}${K(null, '中鍵拖曳', '平移鏡頭；Y 回到指揮官')}
     ${K(null, 'Esc', `取消瞄準／指令${anyB() ? '／建造' : ''}，或開啟選單`)}${K(null, '手機', `點隊伍卡片選隊；${unl('deploy') ? '戰術部署中點地面派兵' : '點指令後再點地面派兵'}；技能按鈕點後點地面施放`)}
    </div>
@@ -3664,7 +3740,7 @@ function endGame(win) {
     if (!G) return;
     say(player, win ? 'tower' : 'death', true);
     modal.innerHTML = `<div class="sheet" style="margin-top:8vh"><span class="kick">${fmt(G.time)}・戰役結束</span>
-     <h1 style="color:${win ? C.gold : C.red}">${win ? '勝利：敵方主塔已陷落' : '敗北：我方主塔失守'}</h1>
+     <h1 style="color:${win ? C.gold : C.red}">${modeTitle(win)}</h1>
      <div class="keys" style="max-width:820px"><div><kbd>${G.stats.orders}</kbd><span>下達指令</span></div><div><kbd>${G.stats.skills}</kbd><span>施放技能</span></div><div><kbd>${G.stats.kills}</kbd><span>擊殺指揮官</span></div><div><kbd>${G.stats.deaths}</kbd><span>陣亡次數</span></div><div><kbd>${G.stats.towers}</kbd><span>摧毀敵塔</span></div></div>
      <div class="bar"><button type="button" class="go" id="again">回到大廳</button></div></div>`;
     modal.classList.add('show');
@@ -3742,9 +3818,9 @@ function castE(c, p, tgt) {
   const k = c.key;
   if (k === 'valen') addZone({kind:'bastion', team:c.team, x:p.x, z:p.z, r:10, dur:8, owner:c, color:C.gold});
   else if (k === 'sylvie') { const f = Math.hypot(p.x - c.x, p.z - c.z) > 0.5 ? Math.atan2(p.x - c.x, p.z - c.z) : c.facing; c.facing = f; addZone({kind:'sweep', team:c.team, x:c.x, z:c.z, f, len:40, w:4, r:2.2, dur:0.55, dmg:150, kb:1.5, stun:0, owner:c, color:'#FFE6A0', hit:new Set()}); }
-  else if (k === 'orion') addZone({kind:'meteor', team:c.team, x:p.x, z:p.z, r:9, dur:2.4, delay:1.8, owner:c, color:'#C9A0FF', dmg:170, stun:1, big:true});
+  else if (k === 'orion') addZone({kind:'meteor', team:c.team, x:p.x, z:p.z, r:9, dur:2.1, delay:1.5, owner:c, color:'#C9A0FF', dmg:170, stun:1, big:true});
   else if (k === 'gru') { for (let i = 0; i < 6 + (hasTal(c, 'g_p2') ? 2 : 0); i++) bigWolf(c, spawnSoldier(c, 'wolf', c.x + rnd(-3, 3), c.z + rnd(-3, 3), 1, 15*TV(c, 'g_p2', 1, 1.5))); c.frenzyT = 8; addZone({kind:'flash', team:c.team, x:c.x, z:c.z, r:10, dur:0.8, owner:c, color:'#E6B07A'}); }
-  else if (k === 'brand') { for (let i = 0; i < 5; i++) { const a = Math.random()*Math.PI*2, r = Math.sqrt(Math.random())*6; addZone({kind:'boulder', team:c.team, x:p.x + Math.sin(a)*r, z:p.z + Math.cos(a)*r, r:4, dur:1.1 + i*0.45, delay:0.8 + i*0.45, owner:c, color:'#E8A04A'}); } }
+  else if (k === 'brand') { const bf = Math.atan2(p.x - c.x, p.z - c.z); for (let i = 0; i < 5; i++) { const a = Math.random()*Math.PI*2, r = Math.sqrt(Math.random())*6; addZone({kind:'boulder', team:c.team, x:p.x + Math.sin(a)*r, z:p.z + Math.cos(a)*r, r:4, f:bf, big:true, dur:1.4 + i*0.45, delay:1.1 + i*0.45, owner:c, color:'#E8A04A'}); } }
   else if (k === 'raven') {
     c.x = clamp(p.x, -98, 98); c.z = clamp(p.z, -98, 98); c.px = c.x; c.pz = c.z;
     squad(c).forEach((s, i) => { const a = i*2.4, r = 2 + (i % 6)*0.8; s.x = clamp(p.x + Math.sin(a)*r, -98, 98); s.z = clamp(p.z + Math.cos(a)*r, -98, 98); s.px = s.x; s.pz = s.z; s.stealth = true; s.shadowT = G.time + 3; });
@@ -3832,7 +3908,8 @@ const UPG = {
   banner:{n:'王旗', f:0.8, hp:1.3, d:'攻速 +15% → +25%、士氣回復 +2 → +4'},
   watch:{n:'烽火瞭望塔', f:0.8, hp:1.3, d:'視野 30 → 40'},
   trap:{n:'強化陷阱', f:0.7, hp:1, d:'定身 2 → 3 秒、傷害 40 → 100'},
-  supply:{n:'野戰醫院', f:0.7, hp:1.3, d:'範圍回血速度 ×1.8'}
+  supply:{n:'野戰醫院', f:0.7, hp:1.3, d:'範圍回血速度 ×1.8'},
+  rune:{n:'輪迴法陣', f:0.7, hp:1.3, d:'復活時間縮短'}
 };
 function cancelUpg() { if (G && G.upg) { G.upg = false; updateAimHud(); } }
 function updateUpgHL() {
@@ -4076,7 +4153,7 @@ const TSTEPS = [
   {t:() => '教學完成！敵軍出動了：推倒任一路三座防禦塔、摧毀敵方主塔就能獲勝。按 <b>H</b> 隨時查看操作說明。', ok:T => T.t > 6}
 ];
 function startTutorial(k) {
-  newGame(k);
+  TUTNEXT = true; newGame(k);
   chooseUnits('pike', 'archer');
   G.tut = {i:-1, t:0, done:false, st:TSTEPS.filter(s => !s.need || s.need())};
   tutGo(0);
@@ -4117,7 +4194,7 @@ function showResults(win) {
   const RR = repReward(win, mvp === player), RK = rankReward(win, mvp === player);
   const T0 = tot(0), T1 = tot(1), why = mvp ? [mvp.st.kills ? `擊殺 ${mvp.st.kills}` : '', mvp.st.towers ? `推塔 ${mvp.st.towers}` : '', `殲敵士兵 ${mvp.st.solK}`, `傷害 ${Math.round(mvp.st.dmg/100)/10}k`].filter(Boolean).join('・') : '';
   modal.innerHTML = `<div class="sheet" style="margin-top:4vh"><div class="bar" style="align-items:flex-end"><div style="display:flex;flex-direction:column;gap:6px;flex:1"><span class="kick">${fmt(G.time)}・戰役結束</span>
-     <h1 style="color:${win ? C.gold : C.red};margin:0">${win ? '勝利：敵方主塔已陷落' : '敗北：我方主塔失守'}</h1></div>
+     <h1 style="color:${win ? C.gold : C.red};margin:0">${modeTitle(win)}</h1></div>
      ${mvp ? `<div style="display:flex;gap:10px;align-items:center">${icon(mvp.key, 56, mvp.team)}<div><div class="kick">本場 MVP</div><div style="font-size:20px;font-weight:800">${CMDS[mvp.key].t} ${CMDS[mvp.key].n}${mvp === player ? '（你）' : ''}</div><div style="color:var(--muted);font-size:12px">${why}</div></div></div>` : ''}</div>
      <div class="res"><div class="card"><h3 style="color:${C.blue}">聖輝聯軍・擊殺 ${T0.k}・折損士兵 ${T0.l}・推倒敵塔 ${G.lost[1]}</h3><table>${head}${cs.filter(c => c.team === 0).map(row).join('')}</table>
        <h3 style="color:${C.red};margin-top:12px">黑曜大軍・擊殺 ${T1.k}・折損士兵 ${T1.l}・推倒敵塔 ${G.lost[0]}</h3><table>${head}${cs.filter(c => c.team === 1).map(row).join('')}</table></div>
@@ -4473,7 +4550,8 @@ const BLV = {
   banner:     {spd:[15, 25, 30, 35, 40], mor:[2, 4, 5, 6, 7], dmg:[0, 0, 0, 8, 12]},
   watch:      {vis:[30, 40, 45, 50, 55], mark:[0, 0, 8, 12, 15]},
   trap:       {root:[2, 3, 3.5, 4, 4.5], dmg:[40, 100, 140, 180, 220], ch:[1, 1, 1, 2, 2]},
-  supply:     {heal:[3, 4.5, 5.5, 6.5, 8], r:[9, 10, 11, 12, 13], rein:[0, 1, 1, 1, 1], mor:[0, 0, 2, 3, 4]}
+  supply:     {heal:[3, 4.5, 5.5, 6.5, 8], r:[9, 10, 11, 12, 13], rein:[0, 1, 1, 1, 1], mor:[0, 0, 2, 3, 4]},
+  rune:       {cdr:[0, 10, 15, 20, 25]}
 };
 const blv = b => Math.max(1, Math.min(BMAX, b && b.lvl || 1));
 const BV = (b, k) => BLV[b.type][k][blv(b) - 1];
@@ -4499,6 +4577,7 @@ function bldEff(type, l) {
     case 'banner': return `範圍內友軍攻速 +${V('spd')}%、士氣回復 +${V('mor')}／秒${V('dmg') ? `、傷害 +${V('dmg')}%` : ''}`;
     case 'watch': return `視野 ${V('vis')}、揭露隱身、辨識兵種${V('mark') ? `，視野內敵軍受到的傷害 +${V('mark')}%` : ''}`;
     case 'trap': return `隱形；踏入的敵軍定身 ${V('root')} 秒並受 ${V('dmg')} 傷害${V('ch') > 1 ? '，可以觸發 2 次' : ''}`;
+    case 'rune': return `陣亡後在此復活（不能整編）${V('cdr') ? `，復活時間 -${V('cdr')}%` : ''}`;
     case 'supply': return `範圍內部隊與指揮官每秒回復 ${V('heal')}% 生命${V('mor') ? `、士氣 +${V('mor')}／秒` : ''}${V('rein') ? '，也是補員點' : ''}；可在此整編`;
   }
   return '';
@@ -4605,6 +4684,14 @@ function bldHurt(t, src) {
   return m;
 }
 
+// ---------- respawn circle (v1.6): building cap 8 ----------
+const BCAP = 8;
+function runeOf(c, any) { return ents.find(e => e.kind === 'bld' && !e.dead && e.type === 'rune' && e.owner === c && (any || e.built)); }
+function runeOn(c) { return c === player ? G.useRune !== false : c.net ? c.useRune !== false : true; }
+function runeCdr(c) { const r = runeOf(c); return r && runeOn(c) ? 1 - BV(r, 'cdr')/100 : 1; }
+function runeFx(r) { addZone({kind:'flash', team:r.team, x:r.x, z:r.z, r:4, dur:0.8, owner:r.owner, color:'#7FE8D0'}); }
+function setRune(on) { G.useRune = on; if (NET.client) netCmdSend({t:'rune', on}); }
+
 // ================= v1.2: reputation (聲望) and cosmetic skins =================
 // Reputation is earned by finishing matches (more for wins) and buys commander and unit skins.
 // The profile lives in this browser's localStorage.
@@ -4633,7 +4720,7 @@ const skinOk = id => typeof id === 'string' && (SKINS[id] || /^[a-z]+:(gold|dark
 const PROF_KEY = 'fhwz-profile';
 const PROF0 = () => ({rep:0, own:[], eqC:{}, eqU:{}, fw:'', games:0, wins:0});
 let PROF = (() => { try { const p = JSON.parse(localStorage.getItem(PROF_KEY) || 'null'); if (p && typeof p.rep === 'number') return Object.assign(PROF0(), p); } catch (e) {} return PROF0(); })();
-function saveProf() { try { localStorage.setItem(PROF_KEY, JSON.stringify(PROF)); } catch (e) {} }
+function saveProf() { PROF.at = Date.now(); try { localStorage.setItem(PROF_KEY, JSON.stringify(PROF)); } catch (e) {} if (typeof cloudDirty === 'function') cloudDirty(); }
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 const owns = id => PROF.own.includes(id);
 // what this browser's player wears: {c: commander skin, u: {unitType: skin}}
@@ -4652,6 +4739,7 @@ function repReward(win, mvpMe) {
   if (online) L.push(['線上對戰加成', win ? 50 : 15]);
   else if (win && G.flv >= 6) L.push(['高階對手', 50]);
   if (mvpMe) L.push(['本場 MVP', 30]);
+  const mr = modeRep(); if (mr && mr[1]) L.push(mr);
   if (win && PROF.fw !== today()) { PROF.fw = today(); L.push(['每日首勝', 100]); }
   const sum = L.reduce((a, b) => a + b[1], 0);
   PROF.rep += sum; PROF.games++; if (win) PROF.wins++; saveProf();
@@ -4800,7 +4888,7 @@ function drawShop(P2, cap) {
 // AI included, and the AI strength on both sides follows the level too.
 const RANKS = [
   {n:'見習指揮官', xp:0,    foe:0.8, ally:1.1, smart:false, u:['o:advance', 'o:hold', 'o:rally', 'o:retreat', 'o:move', 'o:focus', 'q', 'reform', 'b:arrowtower', 'b:supply', 'b:barracks', 'upg', 'unit:pike', 'unit:shield', 'unit:archer', 'cmd:valen', 'cmd:sylvie', 'cmd:gru']},
-  {n:'百夫長',     xp:100,  foe:0.9, ally:1.1, smart:false, u:['r', 'unit:cav', 'unit:priest', 'team', 'deploy', 'cmd:brand']},
+  {n:'百夫長',     xp:100,  foe:0.9, ally:1.1, smart:false, u:['r', 'unit:cav', 'unit:priest', 'team', 'deploy', 'b:rune', 'cmd:brand']},
   {n:'千夫長',     xp:250,  foe:1, ally:1.05, smart:false, u:['uskill', 'form', 'o:charge', 'b:trench', 'b:cheval', 'online']},
   {n:'騎士隊長',   xp:450,  foe:1, ally:1, smart:false, u:['b:banner', 'b:watch', 'unit:mage', 'unit:scout', 'cmd:orion', 'obj']},
   {n:'軍團長',     xp:750,  foe:1, ally:1, smart:true, u:['e', 'armory', 'unit:griffin', 'unit:siege', 'cmd:raven', 'o:ambush']},
@@ -4952,6 +5040,594 @@ function rankUpModal() {
   return true;
 }
 
+// ================= v1.5: commander actions and ultimate cinematics =================
+// every skill plays its own authored clip (anims.json); E has a short wind-up (rooted) before it lands,
+// and each E gets a visual-only zone ('uc_*' while charging, 'ue_*' when it fires) that also syncs to online clients
+const ACTS = {
+  valen:{q:'v_slam', r:'v_raise', e:'e_valen'},
+  sylvie:{q:'s_up', r:'s_up', e:'e_sylvie'},
+  orion:{q:'o_call', r:'o_push', e:'e_orion'},
+  gru:{q:'g_roar', r:'g_point', e:'e_gru'},
+  brand:{q:'b_throw', r:'b_flex', e:'e_brand'},
+  raven:{q:'r_crow', r:'lunge', e:'e_raven'}
+};
+const UREL = {valen:0.56, sylvie:0.62, orion:0.42, gru:0.5, brand:0.55, raven:0.3};   // release frame of each E clip
+const ACTL = ['order', 'e_valen', 'v_raise', 'v_slam', 'e_sylvie', 's_up', 'e_orion', 'o_call', 'o_push', 'e_gru', 'g_roar', 'g_point', 'e_brand', 'b_throw', 'b_flex', 'e_raven', 'lunge', 'r_crow'];
+function doAct(c, n) { if (!n || (typeof NET !== 'undefined' && NET.client)) return; c.actN = n; c.actSeq = ((c.actSeq || 0) + 1) & 63; c.cmdA = 0.6; }
+const actCode = c => (c.actSeq ? c.actSeq*32 + Math.max(0, ACTL.indexOf(c.actN)) : 0);
+function actApply(e, code) {
+  if (code === e.actK) return; e.actK = code;
+  if (code) { e.actN = ACTL[code & 31]; e.actSeq = code >> 5; e.cmdA = 0.6; }
+}
+
+// ---------- wind-up ----------
+function ultStart(c, p, tgt) {
+  const k = c.key, w = UREL[k] || 0.4;
+  if (p && Math.hypot(p.x - c.x, p.z - c.z) > 0.5 && k !== 'valen' && k !== 'gru') c.facing = Math.atan2(p.x - c.x, p.z - c.z);
+  c.ultP = {t:w, p:{x:p.x, z:p.z}, tgt};
+  c.rootT = Math.max(c.rootT || 0, w + 0.12);
+  doAct(c, ACTS[k].e);
+  addZone({kind:'uc_' + k, team:c.team, x:c.x, z:c.z, r:2, f:c.facing, dur:w + 0.12, owner:c});
+  return true;
+}
+function ultTick(c, dt) {
+  if (!c.ultP) return;
+  if (c.respawn > 0) { c.ultP = null; return; }
+  c.ultP.t -= dt;
+  if (c.ultP.t > 0) return;
+  const u = c.ultP, ox = c.x, oz = c.z; c.ultP = null;
+  castE(c, u.p, u.tgt);
+  const k = c.key, p = u.p, f = Math.atan2(p.x - ox, p.z - oz);
+  if (k === 'valen') addZone({kind:'ue_valen', team:c.team, x:p.x, z:p.z, r:10, dur:8, owner:c});
+  else if (k === 'sylvie') addZone({kind:'ue_sylvie', team:c.team, x:ox, z:oz, f:c.facing, len:40, w:4, r:2, dur:1.25, owner:c});
+  else if (k === 'orion') addZone({kind:'ue_orion', team:c.team, x:p.x, z:p.z, r:9, dur:2.9, owner:c});
+  else if (k === 'gru') addZone({kind:'ue_gru', team:c.team, x:c.x, z:c.z, r:12, dur:1.9, owner:c});
+  else if (k === 'brand') { addZone({kind:'ue_flare', team:c.team, x:ox, z:oz, r:2, dur:1.5, owner:c}); addZone({kind:'ue_brand', team:c.team, x:p.x, z:p.z, r:7, f, dur:3.6, owner:c}); }
+  else if (k === 'raven') { addZone({kind:'ue_ravenO', team:c.team, x:ox, z:oz, r:3, dur:1.1, owner:c}); addZone({kind:'ue_raven', team:c.team, x:c.x, z:c.z, r:8, dur:1.5, owner:c}); }
+}
+
+// ---------- visual helpers ----------
+const isUlt = k => typeof k === 'string' && (k.startsWith('ue_') || k.startsWith('uc_'));
+let _glowT = null;
+function glowTex() {
+  if (_glowT) return _glowT;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, 'rgba(255,255,255,0.55)'); g.addColorStop(0.6, 'rgba(255,255,255,0.12)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); _glowT = new THREE.CanvasTexture(cv); return _glowT;
+}
+const AB = (col, op = 1) => new THREE.MeshBasicMaterial({color:col, transparent:true, opacity:op, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide});
+const NB = (col, op = 1) => new THREE.MeshBasicMaterial({color:col, transparent:true, opacity:op, depthWrite:false, side:THREE.DoubleSide});
+function uglow(par, col, s, x = 0, y = 0, z = 0) {
+  const m = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(), color:col, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending}));
+  m.position.set(x, y, z); m.scale.setScalar(s); par.add(m); return m;
+}
+function flatRing(par, r1, r2, col, op, y = 0.15, seg = 64) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(r1, r2, seg), AB(col, op)); m.rotation.x = -Math.PI/2; m.position.y = y; m.userData.own = true; par.add(m); return m;
+}
+function flatPlane(par, w, l, col, op, y = 0.2) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, l), AB(col, op)); m.rotation.x = -Math.PI/2; m.position.y = y; m.userData.own = true; par.add(m); return m;
+}
+const ease = k => (k <= 0 ? 0 : k >= 1 ? 1 : 1 - (1 - k)**3);
+const win = (t, a, b) => Math.max(0, Math.min(1, (t - a)/(b - a)));
+const fade = (t, a, b) => 1 - win(t, a, b);
+function setOp(m, o) { if (m && m.material) m.material.opacity = Math.max(0, o); }
+const nearCam = z => (z.x - camT.x)**2 + (z.z - camT.z)**2 < 75*75;
+const ULTCOL = {valen:'#FFE6A0', sylvie:'#FFF2C0', orion:'#D7B0FF', gru:'#FFB86B', brand:'#FF7A45', raven:'#C79BFF'};
+
+// ---------- banner + screen flash for the ultimate ----------
+function ultBanner(z) {
+  if (SVR || typeof document === 'undefined') return;
+  const key = z.kind.slice(3); if (!CMDS[key]) return;
+  const mine = typeof player !== 'undefined' && player && z.owner === player;
+  const ally = typeof player !== 'undefined' && player ? z.team === player.team : z.team === 0;
+  if (!ally && !nearCam(z)) return;
+  let el = document.getElementById('ultban');
+  if (!el) { el = document.createElement('div'); el.id = 'ultban'; el.className = 'hud'; (document.getElementById('hudroot') || document.body).appendChild(el); }
+  el.className = `hud ${ally ? 'a' : 'e'}`; el.style.setProperty('--uc', ULTCOL[key]);
+  el.innerHTML = `<small>${CMDS[key].n}${ally ? '' : '・敵方'}</small><b>${CMDS[key].e.n}</b>`;
+  void el.offsetWidth; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 1500);
+  if (mine || (ally && nearCam(z))) {
+    let fl = document.getElementById('ultfl');
+    if (!fl) { fl = document.createElement('div'); fl.id = 'ultfl'; (document.getElementById('hudroot') || document.body).appendChild(fl); }
+    fl.style.setProperty('--uc', ULTCOL[key]); fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go');
+  }
+}
+
+// ---------- build (called from addZone) ----------
+function ultBuild(z) {
+  z.ux = true;
+  if (SVR) return;
+  const g = z.mesh, k = z.kind, U = z.u = {};
+  const col = ULTCOL[k.slice(3)] || '#FFFFFF';
+  if (k === 'uc_valen') { U.col = CY(1, 1, 1, 18); U.col = add(g, U.col, AB('#FFE6A0', 0)); U.col.scale.set(0.7, 5, 0.7); U.col.position.y = 2.5; U.gl = uglow(g, '#FFE6A0', 0.1, 0, 3.3, 0); }
+  else if (k === 'uc_sylvie') {
+    const h = new THREE.Group(); h.rotation.y = z.f; g.add(h); U.h = h;
+    U.gl = uglow(h, '#FFF2C0', 0.2, 0.0, 1.45, 0.62); U.line = flatPlane(h, 0.35, 40, '#FFE6A0', 0); U.line.position.z = 20.6;
+    U.arrow = add(h, B(0.06, 0.06, 1.1), AB('#FFF8D8', 0), 0.02, 1.45, 0.2);
+  }
+  else if (k === 'uc_orion') { U.r1 = flatRing(g, 1.6, 1.8, '#C9A0FF', 0); U.r2 = flatRing(g, 2.1, 2.2, '#C9A0FF', 0, 0.16, 6); U.gl = uglow(g, '#D7B0FF', 0.2, 0, 3.0, 0); }
+  else if (k === 'uc_gru') { U.r1 = flatRing(g, 1.2, 1.5, '#C8A070', 0); }
+  else if (k === 'uc_brand') { U.gl = uglow(g, '#FF9A50', 0.2, 0, 2.6, 0); }
+  else if (k === 'uc_raven') { U.gl = uglow(g, '#7A4AB0', 0.2, 0, 1.0, 0); U.r1 = flatRing(g, 0.8, 1.4, '#5A2E80', 0); }
+  else if (k === 'ue_valen') {
+    U.pil = add(g, CY(1, 1, 1, 24), AB('#FFE6A0', 0)); U.pil.scale.set(3.5, 44, 3.5); U.pil.position.y = 22;
+    U.core = uglow(g, '#FFF4D0', 0.1, 0, 2, 0);
+    U.dome = add(g, SP(1, 32, 16), AB('#F1D29A', 0)); U.dome.scale.set(0.1, 0.06, 0.1);
+    U.rr = flatRing(g, z.r - 0.5, z.r, '#FFE6A0', 0); U.rr2 = flatRing(g, z.r*0.55, z.r*0.6, '#FFE6A0', 0, 0.16, 6);
+    U.bl = [];
+    for (let i = 0; i < 10; i++) { const a = i/10*Math.PI*2, m = add(g, B(0.25, 1, 0.25), AB('#FFE6A0', 0), Math.sin(a)*z.r*0.97, 0, Math.cos(a)*z.r*0.97); m.scale.y = 0.01; U.bl.push(m); }
+  }
+  else if (k === 'ue_sylvie') {
+    const h = new THREE.Group(); h.rotation.y = z.f; g.add(h); U.h = h;
+    const ar = new THREE.Group(); ar.position.set(0, 1.45, 1); h.add(ar); U.ar = ar;
+    add(ar, B(0.16, 0.16, 3.4), AB('#FFF8D8', 0.95), 0, 0, -1.7);
+    const hd = add(ar, CO(0.5, 1.5, 6), AB('#FFFFFF', 1), 0, 0, 0.6); hd.rotation.x = Math.PI/2;
+    for (const s of [-1, 1]) { const w = add(ar, B(0.9, 0.04, 0.7), AB('#FFE6A0', 0.85), s*0.45, 0, -3.2); w.rotation.z = s*0.25; }
+    U.hg = uglow(ar, '#FFF2C0', 5, 0, 0, 0.2); U.tg = uglow(ar, '#FFD77A', 3, 0, 0, -2.5);
+    U.tr = flatPlane(h, 3.2, 1, '#FFE6A0', 0, 1.2); U.tr2 = add(h, new THREE.PlaneGeometry(1, 1), AB('#FFF2C0', 0)); U.tr2.userData.own = true; U.tr2.rotation.set(0, Math.PI/2, 0); U.tr2.position.y = 1.45;
+    U.sc = flatPlane(h, 1.6, 1, '#FFB24A', 0, 0.08);
+    U.end = uglow(h, '#FFF2C0', 0.1, 0, 1.6, z.len);
+  }
+  else if (k === 'ue_orion') {
+    U.c = new THREE.Group(); U.c.position.y = 0.2; g.add(U.c);
+    U.r1 = flatRing(U.c, z.r - 0.45, z.r, '#C9A0FF', 0, 0); U.r2 = flatRing(U.c, z.r*0.72, z.r*0.76, '#E6CCFF', 0, 0.01); U.r3 = flatRing(U.c, z.r*0.3, z.r*0.34, '#E6CCFF', 0, 0.02);
+    U.sp = new THREE.Group(); U.c.add(U.sp);
+    for (let i = 0; i < 6; i++) { const m = flatPlane(U.sp, 0.18, z.r*1.5, '#D7B0FF', 0, 0.03); m.rotation.z = i/6*Math.PI; }
+    U.tri = new THREE.Group(); U.c.add(U.tri);
+    for (let s = 0; s < 2; s++) for (let i = 0; i < 3; i++) { const a = i/3*Math.PI*2 + s*Math.PI/3, b = a + Math.PI*2/3, R = z.r*0.72; const m = flatPlane(U.tri, 0.14, R*Math.sqrt(3), '#E6CCFF', 0, 0.04); m.position.set((Math.sin(a) + Math.sin(b))/2*R, 0.04, (Math.cos(a) + Math.cos(b))/2*R); m.rotation.z = Math.atan2(Math.sin(b) - Math.sin(a), Math.cos(b) - Math.cos(a)); }
+    U.beam = add(g, CY(1, 1, 1, 18), AB('#B890FF', 0)); U.beam.scale.set(1.2, 60, 1.2); U.beam.position.y = 30;
+    U.rg = uglow(g, '#E0B8FF', 6, 0, 30, 0); U.fl = uglow(g, '#FFE0FF', 0.1, 0, 2, 0);
+  }
+  else if (k === 'ue_gru') {
+    U.rs = [0, 1, 2].map(() => flatRing(g, 0.88, 1, '#FFB86B', 0, 0.2));
+    U.fl = [];
+    for (let i = 0; i < 12; i++) { const a = i/12*Math.PI*2, m = add(g, CO(0.5, 3, 5), AB('#FFB86B', 0), Math.sin(a)*3, 1.5, Math.cos(a)*3); U.fl.push({m, a}); }
+    U.gl = uglow(g, '#FFCF8A', 0.1, 0, 2.2, 0);
+  }
+  else if (k === 'ue_flare') { U.f = uglow(g, '#FF5A2A', 2.2, 0, 2.5, 0); U.c = add(g, SP(0.3, 8, 6), AB('#FFE0C0', 1), 0, 2.5, 0); }
+  else if (k === 'ue_brand') {
+    U.c = new THREE.Group(); U.c.position.y = 0.25; g.add(U.c);
+    U.r1 = flatRing(U.c, z.r - 0.35, z.r, '#FF5A2A', 0, 0); U.r2 = flatRing(U.c, 0.6, 0.9, '#FF5A2A', 0, 0.01);
+    U.br = new THREE.Group(); U.c.add(U.br);
+    for (let i = 0; i < 4; i++) { const b = new THREE.Group(); b.rotation.y = i*Math.PI/2 + Math.PI/4; U.br.add(b); const p1 = flatPlane(b, 0.3, 2.2, '#FF7A45', 0, 0.02); p1.position.z = z.r + 0.8; const p2 = flatPlane(b, 2.2, 0.3, '#FF7A45', 0, 0.02); p2.position.z = z.r + 1.75; }
+    U.cr = new THREE.Group(); U.c.add(U.cr);
+    for (let i = 0; i < 2; i++) { const m = flatPlane(U.cr, 0.16, z.r*1.6, '#FF9A70', 0, 0.03); m.rotation.z = i*Math.PI/2; }
+  }
+  else if (k === 'ue_ravenO') {
+    U.p = [];
+    for (let i = 0; i < 6; i++) { const m = add(g, SP(1, 10, 8), NB('#1C0F28', 0), (Math.random() - 0.5)*1.6, 0.6 + Math.random()*1.6, (Math.random() - 0.5)*1.6); m.scale.setScalar(0.1); U.p.push(m); }
+    U.gl = uglow(g, '#8A5AC8', 4, 0, 1.2, 0);
+  }
+  else if (k === 'ue_raven') {
+    U.s = add(g, SP(1, 18, 12), NB('#22102E', 0)); U.s.position.y = 0.8; U.s.scale.setScalar(0.1);
+    U.sl = [];
+    for (let i = 0; i < 7; i++) { const m = add(g, B(0.14, 0.04, 1), AB('#D6B0FF', 0), 0, 1.0 + (i % 3)*0.35, 0); m.rotation.y = i*0.9 + Math.random()*0.4; m.rotation.z = (Math.random() - 0.5)*0.6; U.sl.push(m); }
+    U.r1 = flatRing(g, 0.86, 1, '#B892E0', 0, 0.2); U.gl = uglow(g, '#B892E0', 0.1, 0, 1.2, 0);
+  }
+  if (k.startsWith('ue_') && k !== 'ue_flare' && k !== 'ue_ravenO') ultBanner(z);
+  ultBurst(z);
+}
+// one-shot particles and shakes when a zone appears
+function ultBurst(z) {
+  if (SVR || !G) return;
+  const k = z.kind;
+  if (k === 'ue_valen') { sparks(z.x, 0.6, z.z, '#FFE6A0', 60, 12, 10); sparks(z.x, 0.3, z.z, '#FFFFFF', 30, 18, 6, 0.2); fxRing(z.x, z.z, z.r*1.3, '#FFE6A0', 0.9); fxRing(z.x, z.z, z.r*0.7, '#FFFFFF', 0.6); shake(0.65, z.x, z.z); }
+  else if (k === 'ue_sylvie') { const fx = Math.sin(z.f), fz = Math.cos(z.f); sparks(z.x + fx, 1.5, z.z + fz, '#FFF2C0', 40, 14, 4, 0.3); fxRing(z.x + fx*1.5, z.z + fz*1.5, 5, '#FFE6A0', 0.5); shake(0.45, z.x, z.z); }
+  else if (k === 'ue_gru') { sparks(z.x, 0.4, z.z, '#9C8A74', 40, 10, 10, 0.3); sparks(z.x, 1.2, z.z, '#FFB86B', 36, 9, -2); shake(0.7, z.x, z.z); }
+  else if (k === 'ue_raven') { sparks(z.x, 1, z.z, '#B892E0', 44, 12, 4); sparks(z.x, 1, z.z, '#2A1638', 30, 8, -1); fxRing(z.x, z.z, z.r*1.2, '#B892E0', 0.5); shake(0.5, z.x, z.z); }
+  else if (k === 'ue_ravenO') sparks(z.x, 1, z.z, '#5A2E80', 26, 5, -3);
+  else if (k === 'ue_flare') sparks(z.x, 2.5, z.z, '#FFB070', 18, 6, 6);
+  else if (k === 'ue_brand') fxRing(z.x, z.z, z.r*1.6, '#FF5A2A', 0.7);
+}
+
+// ---------- per-frame animation (called from updateZones, also on clients) ----------
+function ultAnim(z, dt) {
+  const U = z.u; if (!U || SVR) return;
+  const t = z.t, k = z.kind, D = z.dur, out = fade(t, D - 0.4, D);
+  if (k === 'uc_valen') { const a = win(t, 0, 0.35); setOp(U.col, 0.35*a*out); U.col.scale.set(0.7 - 0.3*a, 5, 0.7 - 0.3*a); U.gl.scale.setScalar(0.5 + 2.6*a); if (Math.random() < 0.6) sparks(z.x + (Math.random() - 0.5)*2, 0.3, z.z + (Math.random() - 0.5)*2, '#FFE6A0', 2, 2, -8, 1.2); }
+  else if (k === 'uc_sylvie') {
+    const a = win(t, 0.1, D - 0.1); U.gl.scale.setScalar(0.3 + 2.6*a); setOp(U.line, (0.1 + 0.18*a)*(0.75 + 0.25*Math.sin(t*40))); setOp(U.arrow, 0.9*win(t, 0.15, 0.35));
+    if (Math.random() < 0.7) { const fx = Math.sin(z.f), fz = Math.cos(z.f); sparks(z.x + fx*0.6, 1.45, z.z + fz*0.6, '#FFF2C0', 1, 1.6, -3, 0.4); }
+  }
+  else if (k === 'uc_orion') { const a = win(t, 0, 0.3); setOp(U.r1, 0.8*a*out); setOp(U.r2, 0.7*a*out); U.r1.rotation.z += dt*2; U.r2.rotation.z -= dt*3; U.gl.scale.setScalar(0.5 + 3*a); if (Math.random() < 0.8) sparks(z.x + (Math.random() - 0.5)*3, 0.2, z.z + (Math.random() - 0.5)*3, '#D7B0FF', 2, 2, -10, 1); }
+  else if (k === 'uc_gru') { const a = win(t, 0, 0.4); setOp(U.r1, 0.6*a*out); U.r1.scale.setScalar(1 + a); if (Math.random() < 0.7) sparks(z.x, 0.2, z.z, '#9C8A74', 3, 4, 8, 0.2); }
+  else if (k === 'uc_brand') { U.gl.scale.setScalar(0.5 + 2*win(t, 0, 0.4)*(0.8 + 0.2*Math.sin(t*30))); }
+  else if (k === 'uc_raven') { const a = win(t, 0, 0.25); U.gl.scale.setScalar(1 + 3*a); setOp(U.r1, 0.6*a); if (Math.random() < 0.8) sparks(z.x, 0.4, z.z, '#3A1A52', 3, 3, -6, 0.6); }
+  else if (k === 'ue_valen') {
+    const a = ease(win(t, 0, 0.2)); setOp(U.pil, 0.85*a*fade(t, 0.35, 1.3)); const pr = 3.5 - 2.6*win(t, 0, 0.6); U.pil.scale.set(pr, 44, pr);
+    U.core.scale.setScalar(16*Math.sin(Math.PI*win(t, 0, 0.7))); setOp(U.core, 1);
+    const d = ease(win(t, 0.08, 0.6)), R = z.r*d; U.dome.scale.set(R, R*0.55, R); setOp(U.dome, (0.42*fade(t, 0.6, 1.6) + 0.1 + 0.03*Math.sin(t*3))*out*win(t, 0.05, 0.2));
+    setOp(U.rr, (0.4 + 0.5*fade(t, 0.5, 1.5))*out*win(t, 0.05, 0.25)); setOp(U.rr2, 0.5*out*win(t, 0.2, 0.5)); U.rr2.rotation.z += dt*0.5; U.rr.rotation.z -= dt*0.2;
+    U.bl.forEach((m, i) => { const h = 6*Math.sin(Math.PI*win(t, 0.15 + i*0.03, 1.3 + i*0.03)) + 1.2; m.scale.y = h; m.position.y = h/2; setOp(m, (0.75*fade(t, 0.9, 1.5) + 0.18)*out*win(t, 0.15, 0.3)); });
+    if (t < 0.9 && Math.random() < 0.8) { const a2 = Math.random()*Math.PI*2, r = Math.random()*z.r; sparks(z.x + Math.sin(a2)*r, 0.3, z.z + Math.cos(a2)*r, '#FFE6A0', 2, 2, -9, 1.4); }
+  }
+  else if (k === 'ue_sylvie') {
+    const fly = win(t, 0, 0.55), L = 1 + (z.len - 1)*fly, fx = Math.sin(z.f), fz = Math.cos(z.f);
+    U.ar.position.z = L; U.ar.visible = t < 0.58; U.hg.scale.setScalar(5 + Math.sin(t*50)*0.8);
+    const tl = Math.max(0.1, L - 0.5); U.tr.scale.set(1, tl, 1); U.tr.position.z = tl/2; U.tr2.scale.set(tl, 1.1, 1); U.tr2.position.z = tl/2;
+    const to = 0.9*fade(t, 0.5, 1.2); setOp(U.tr, to); setOp(U.tr2, to*0.8); U.tr.scale.x = 1 - 0.6*win(t, 0.5, 1.2);
+    U.sc.scale.set(1, tl, 1); U.sc.position.z = tl/2; setOp(U.sc, 0.35*fade(t, 0.6, D));
+    const e = win(t, 0.55, 0.85); U.end.scale.setScalar(14*Math.sin(Math.PI*e)); setOp(U.end, 1);
+    if (t < 0.56) { const px = z.x + fx*L, pz = z.z + fz*L; sparks(px, 1.4, pz, '#FFE6A0', 4, 5, 2, 0.3); if (Math.random() < 0.5) sparks(px, 0.3, pz, '#C9B48A', 2, 4, 8, 0.3); }
+    if (t >= 0.55 && !U.hit) { U.hit = true; const px = z.x + fx*z.len, pz = z.z + fz*z.len; sparks(px, 1.4, pz, '#FFF2C0', 40, 12, 4); fxRing(px, pz, 6, '#FFE6A0', 0.6); shake(0.35, px, pz); }
+  }
+  else if (k === 'ue_orion') {
+    const a = ease(win(t, 0, 0.45)); U.c.scale.setScalar(0.2 + 0.8*a);
+    const o = (0.85*a*fade(t, 1.6, 2.8)) + 0.4*Math.sin(Math.PI*win(t, 1.45, 1.75));
+    for (const m of [U.r1, U.r2, U.r3]) setOp(m, o); U.sp.children.forEach(m => setOp(m, o*0.55)); U.tri.children.forEach(m => setOp(m, o*0.8));
+    U.r2.rotation.z += dt*(0.6 + 2*win(t, 0.5, 1.5)); U.tri.rotation.y -= dt*(0.4 + 1.6*win(t, 0.5, 1.5)); U.sp.rotation.y += dt*0.3;
+    setOp(U.beam, 0.22*win(t, 0.1, 0.4)*fade(t, 1.3, 1.6));
+    const fall = win(t, 0, 1.5), y = 30*(1 - fall) + 1; U.rg.position.y = y + 1; U.rg.scale.setScalar(t < 1.5 ? 8 + 3*fall : 0.01);
+    if (t < 1.5) { sparks(z.x + (Math.random() - 0.5)*2, y + 2, z.z + (Math.random() - 0.5)*2, '#FFB070', 4, 3, -4, 0.3); sparks(z.x, y + 2.5, z.z, '#C9A0FF', 3, 2.5, -6, 0.4); }
+    const e = win(t, 1.5, 2.1); U.fl.scale.setScalar(26*Math.sin(Math.PI*e)); setOp(U.fl, 1);
+    if (t >= 1.5 && !U.hit) { U.hit = true; fxRing(z.x, z.z, z.r*1.6, '#E6CCFF', 0.9); fxRing(z.x, z.z, z.r*2.2, '#FFB070', 1.2, 0.6); sparks(z.x, 1, z.z, '#FFE0FF', 50, 18, 6, 0.4); shake(1.0, z.x, z.z); }
+  }
+  else if (k === 'ue_gru') {
+    U.rs.forEach((m, i) => { const e = win(t, i*0.18, i*0.18 + 0.8); m.scale.setScalar(1 + z.r*1.3*ease(e)); setOp(m, 0.8*Math.sin(Math.PI*e)); });
+    U.fl.forEach(({m, a}, i) => { const e = win(t, 0.05 + i*0.02, 1.2 + i*0.02); const r = 2.5 + 7*ease(e); m.position.set(Math.sin(a)*r, 1.2 + 2.5*e, Math.cos(a)*r); m.scale.set(1 - 0.6*e, 1 + e, 1 - 0.6*e); setOp(m, 0.7*Math.sin(Math.PI*e)); });
+    U.gl.scale.setScalar(12*Math.sin(Math.PI*win(t, 0, 0.6))); setOp(U.gl, 1);
+  }
+  else if (k === 'ue_flare') {
+    const up = ease(win(t, 0, 0.6)), y = 2.5 + 22*up; U.f.position.y = U.c.position.y = y; U.c.visible = t < 0.62;
+    U.f.scale.setScalar(t < 0.6 ? 2.2 : 14*Math.sin(Math.PI*win(t, 0.6, 1.2)) + 0.01);
+    if (t < 0.6) sparks(z.x, y, z.z, '#FFB070', 3, 2, 8, 0.1);
+    if (t >= 0.6 && !U.hit) { U.hit = true; sparks(z.x, y, z.z, '#FF5A2A', 40, 9, 5, 0.3); sparks(z.x, y, z.z, '#FFE0C0', 20, 6, 5, 0.3); }
+  }
+  else if (k === 'ue_brand') {
+    const lock = ease(win(t, 0, 0.5)), pulse = 0.65 + 0.35*Math.sin(t*12);
+    U.br.scale.setScalar(1.5 - 0.5*lock); U.br.rotation.y += dt*(2 - 1.6*lock); U.cr.rotation.y -= dt*0.6;
+    const o = win(t, 0, 0.2)*out;
+    setOp(U.r1, 0.8*o*pulse); setOp(U.r2, 0.9*o); U.br.children.forEach(b => b.children.forEach(m => setOp(m, 0.95*o))); U.cr.children.forEach(m => setOp(m, 0.4*o));
+  }
+  else if (k === 'ue_ravenO') {
+    U.p.forEach((m, i) => { const e = win(t, i*0.03, 0.9); m.scale.setScalar(0.4 + 1.6*ease(e)); m.position.y += dt*0.8; setOp(m, 0.6*fade(e, 0.2, 1)); });
+    U.gl.scale.setScalar(5*fade(t, 0, 0.5) + 0.01);
+  }
+  else if (k === 'ue_raven') {
+    const e = win(t, 0, 0.3); U.s.scale.setScalar(0.5 + z.r*0.75*ease(e)); setOp(U.s, 0.55*fade(t, 0.3, 1.1));
+    U.sl.forEach((m, i) => { const s = win(t, 0.04 + i*0.045, 0.2 + i*0.045); m.scale.z = 0.1 + 9*ease(s); setOp(m, 0.95*fade(t, 0.3 + i*0.045, 0.7 + i*0.045)*(s > 0 ? 1 : 0)); });
+    U.r1.scale.setScalar(1 + z.r*1.2*ease(e)); setOp(U.r1, 0.8*fade(t, 0.15, 0.8)); U.gl.scale.setScalar(10*Math.sin(Math.PI*win(t, 0, 0.5))); setOp(U.gl, 1);
+  }
+}
+// brand's E shells arc in from behind the commander instead of dropping straight down
+function boulderArc(z) {
+  if (!z.rock || !z.big) return false;
+  const k = Math.min(1, z.t/(z.delay || 1)), fx = Math.sin(z.f || 0), fz = Math.cos(z.f || 0), back = 42*(1 - k);
+  const y = 1 + 4*(1 - k) + 26*4*k*(1 - k);
+  z.rock.position.set(-fx*back, y, -fz*back); z.rock.rotation.x += 0.2; z.rock.rotation.z += 0.15;
+  if (!SVR && k < 1 && G) { sparks(z.x - fx*back, y, z.z - fz*back, '#FFB070', 2, 1.5, -2, 0.2); if (Math.random() < 0.5) sparks(z.x - fx*back, y, z.z - fz*back, '#4A4038', 2, 1, -3, 0.2); }
+  return true;
+}
+function ultDispose(z) {
+  if (SVR || !z.ux || !z.mesh) return;
+  z.mesh.traverse(o => { if (o.material && o.material.dispose) o.material.dispose(); if (o.userData && o.userData.own && o.geometry) o.geometry.dispose(); });
+}
+
+// ================= v1.7: progress bound to an itch.io account =================
+// The profile (reputation, skins, rank, record) stays in localStorage as before; once linked it is also kept on the
+// game server under the player's itch.io user id, so it follows them to another computer or browser.
+const CLOUD_KEY = 'fhwz-cloud';
+let CLOUD = (() => { try { const c = JSON.parse(localStorage.getItem(CLOUD_KEY) || 'null'); return c && c.sk ? c : null; } catch (e) { return null; } })();
+const CST = {busy:false, msg:'', err:false, pulled:false, status:null, timer:0};
+function cloudSave() { try { if (CLOUD) localStorage.setItem(CLOUD_KEY, JSON.stringify(CLOUD)); else localStorage.removeItem(CLOUD_KEY); } catch (e) {} }
+function cloudBase() {
+  let u = NET_URL_DEFAULT; try { u = localStorage.getItem('fhwz-net-url') || u; } catch (e) {}
+  return u ? u.trim().replace(/^ws/i, 'http').replace(/\/+$/, '') : '';
+}
+async function cloudReq(path, data, ms = 75000) {
+  const base = cloudBase(); if (!base) throw new Error('還沒有設定伺服器網址');
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(base + path, data ? {method:'POST', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(data), signal:ctl.signal} : {signal:ctl.signal});
+    const j = await r.json().catch(() => ({})); j.status = r.status; return j;
+  } catch (e) { throw new Error(e.name === 'AbortError' ? '伺服器沒有回應' : '連不上伺服器'); }
+  finally { clearTimeout(to); }
+}
+function cloudNote(msg, err = false) { CST.msg = msg; CST.err = err; if (phase === 'lobby' && ltab === 'set') drawLobbyPanel(); }
+const profSum = p => `軍階 ${rankOfXp(p.rxp || 0)}・聲望 ${p.rep || 0}・${p.games || 0} 場 ${p.wins || 0} 勝・外觀 ${(p.own || []).length} 件`;
+function rankOfXp(x) { let r = 1; RANKS.forEach((R, i) => { if (x >= R.xp) r = i + 1; }); return r; }
+const hasProgress = p => (p.games || 0) > 0 || (p.rep || 0) > 0 || (p.rxp || 0) > 0 || (p.own || []).length > 0;
+function adoptProf(d) {
+  if (!d || typeof d.rep !== 'number') return false;
+  PROF = Object.assign(PROF0(), d); try { localStorage.setItem(PROF_KEY, JSON.stringify(PROF)); } catch (e) {}
+  return true;
+}
+
+// ---------- link ----------
+async function linkItch() {
+  if (CST.busy) return;
+  const base = cloudBase(); if (!base) { cloudNote('還沒有設定伺服器網址，請先到「線上對戰」填入。', true); return; }
+  const st = Array.from(crypto.getRandomValues(new Uint8Array(18)), b => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[b % 62]).join('');
+  const url = `${base}/itch/login?s=${st}`;
+  const pop = window.open(url, 'fhwz-itch', 'width=560,height=780');
+  CST.busy = true; CST.link = pop ? '' : url;
+  cloudNote(pop ? '請在跳出的 itch.io 視窗登入並按「Authorize」。伺服器休眠時第一次要等約 1 分鐘。' : '瀏覽器擋住了彈出視窗：請點下面的連結，在新分頁完成授權。');
+  const t0 = Date.now();
+  try {
+    while (Date.now() - t0 < 6*60e3) {
+      await new Promise(r => setTimeout(r, 2000));
+      const r = await cloudReq(`/itch/claim?s=${st}`).catch(() => null);
+      if (r && r.ok) {
+        CLOUD = {sk:r.sk, uid:r.uid, name:r.name, at:0, lt:0}; cloudSave(); CST.link = '';
+        if (r.persist === false) toast('注意：伺服器還沒接上資料庫，雲端紀錄會在伺服器重啟後消失', 'r');
+        CST.busy = false; await cloudFirstSync(); return;
+      }
+      if (r && r.status === 404) { cloudNote('伺服器還不支援 itch.io 綁定：請更新伺服器的 server.js，並設定 ITCH_CLIENT_ID。', true); return; }
+      if (r && r.status === 400) break;
+    }
+    cloudNote('沒有完成授權（逾時）。可以再按一次「綁定」。', true);
+  } finally { CST.busy = false; CST.link = ''; }
+}
+// first link on this device: decide whose progress wins
+async function cloudFirstSync() {
+  cloudNote('已登入，正在讀取雲端紀錄…');
+  const r = await cloudReq(`/save?sk=${CLOUD.sk}`).catch(e => ({err:e.message}));
+  if (!r.ok) { cloudNote(`讀取雲端紀錄失敗：${r.err || '請稍後再試'}`, true); return; }
+  const srv = r.save && r.save.data;
+  if (!srv || !hasProgress(srv)) { await cloudPush(true); cloudNote(`已綁定 ${CLOUD.name}，這台電腦的紀錄已上傳。`); return; }
+  if (!hasProgress(PROF) || JSON.stringify(srv) === JSON.stringify(PROF)) { adoptProf(srv); CLOUD.at = r.save.at; CLOUD.lt = PROF.at || 0; cloudSave(); cloudNote(`已綁定 ${CLOUD.name}，已載入雲端紀錄。`); showLobby(); return; }
+  modal.innerHTML = `<div class="sheet"><span class="kick">綁定 itch.io 帳號・${CLOUD.name}</span><h1>要保留哪一份紀錄？</h1>
+    <p>這個帳號在伺服器上已經有紀錄，和這台電腦上的不同。選一份保留，另一份會被覆蓋。</p>
+    <div class="ccho"><button type="button" data-k="srv"><b>雲端紀錄</b><small>${profSum(srv)}</small><small>最後更新 ${new Date(r.save.at).toLocaleString()}</small></button>
+    <button type="button" data-k="loc"><b>這台電腦的紀錄</b><small>${profSum(PROF)}</small></button></div></div>`;
+  modal.classList.add('show');
+  modal.querySelectorAll('[data-k]').forEach(b => b.onclick = async () => {
+    closeModal();
+    if (b.dataset.k === 'srv') { adoptProf(srv); CLOUD.at = r.save.at; CLOUD.lt = PROF.at || 0; cloudSave(); cloudNote(`已載入 ${CLOUD.name} 的雲端紀錄。`); showLobby(); }
+    else { await cloudPush(true); cloudNote(`已用這台電腦的紀錄覆蓋 ${CLOUD.name} 的雲端紀錄。`); }
+  });
+}
+
+// ---------- sync ----------
+async function cloudPush(now) {
+  if (!CLOUD) return;
+  clearTimeout(CST.timer); CST.timer = 0;
+  const r = await cloudReq('/save', {sk:CLOUD.sk, data:PROF}).catch(e => ({err:e.message}));
+  if (r.ok) { CLOUD.at = r.at; CLOUD.lt = PROF.at || 0; cloudSave(); if (now) cloudNote(`已同步（${new Date(r.at).toLocaleTimeString()}）`); return true; }
+  if (r.status === 429) { CST.timer = setTimeout(() => cloudPush(), 4000); return false; }
+  if (r.err === 'relink') { cloudLost(); return false; }
+  if (now) cloudNote(`同步失敗：${r.err || '請稍後再試'}`, true);
+  return false;
+}
+function cloudDirty() { if (!CLOUD) return; clearTimeout(CST.timer); CST.timer = setTimeout(() => cloudPush(), 3000); }
+function cloudLost() { CLOUD = null; cloudSave(); toast('itch.io 綁定已失效，請到「設定」重新綁定（這台電腦的紀錄還在）', 'r'); cloudNote('綁定已失效，請重新綁定。', true); }
+// when the lobby opens: pick up progress made on another device, or upload what this one did offline
+async function cloudPull(force) {
+  if (!CLOUD || (CST.pulled && !force) || CST.busy) return;
+  CST.pulled = true;
+  const r = await cloudReq(`/save?sk=${CLOUD.sk}`).catch(() => null);
+  if (!r) { if (force) cloudNote('連不上伺服器，稍後會再試。', true); CST.pulled = false; return; }
+  if (!r.ok) { if (r.err === 'relink') cloudLost(); return; }
+  const srv = r.save, localNew = (PROF.at || 0) > (CLOUD.lt || 0);
+  if (srv && srv.at > (CLOUD.at || 0)) {
+    if (localNew && hasProgress(PROF)) { await cloudFirstSync(); return; }      // both changed: let the player choose
+    if (adoptProf(srv.data)) { CLOUD.at = srv.at; CLOUD.lt = PROF.at || 0; cloudSave(); toast(`已載入 ${CLOUD.name} 的雲端紀錄`, 'b'); if (phase === 'lobby') showLobby(); }
+  } else if (localNew || !srv) await cloudPush();
+  if (force) cloudNote(`已同步（${new Date().toLocaleTimeString()}）`);
+}
+async function unlinkItch() {
+  if (!CLOUD) return;
+  const sk = CLOUD.sk; CLOUD = null; cloudSave(); CST.pulled = false;
+  cloudReq('/itch/logout', {sk}).catch(() => {});
+  cloudNote('已解除綁定。這台電腦的紀錄保留，之後的進度只存在這台電腦。');
+}
+
+// ---------- settings card ----------
+function cloudCard() {
+  const msg = CST.msg ? `<p class="cmsg ${CST.err ? 'e' : ''}">${CST.msg}</p>` : '';
+  const lnk = CST.link ? `<p class="cmsg"><a href="${CST.link}" target="_blank" rel="noopener">開啟 itch.io 授權頁</a></p>` : '';
+  const body = CLOUD
+    ? `<p>已綁定 <b>${CLOUD.name.replace(/[<>&]/g, '')}</b>。聲望、外觀、軍階與戰績會自動存到伺服器，在別台電腦綁定同一個帳號就能接著玩。${CLOUD.at ? `<br><small>上次同步 ${new Date(CLOUD.at).toLocaleString()}</small>` : ''}</p>
+       <div class="bar"><button type="button" class="go alt" id="cSync">立即同步</button><button type="button" class="go alt" id="cOut">解除綁定</button></div>`
+    : `<p>綁定後，聲望、外觀、軍階與戰績會存到伺服器上你的 itch.io 帳號底下，換電腦或清除瀏覽器資料都不會遺失。只會讀取 itch.io 的公開名稱，不會取得密碼或購買紀錄。</p>
+       <div class="bar"><button type="button" class="go" id="cLink" ${CST.busy ? 'disabled' : ''}>${CST.busy ? '等待授權中…' : '用 itch.io 帳號綁定'}</button></div>`;
+  return `<div class="ccard"><div class="ch">${glyph('rep', 22, C.gold)}<b>itch.io 帳號紀錄</b></div>${body}${msg}${lnk}</div>`;
+}
+function bindCloudCard(P2) {
+  const b = (id, fn) => { const e = P2.querySelector('#' + id); if (e) e.onclick = fn; };
+  b('cLink', () => linkItch()); b('cSync', () => { cloudNote('同步中…'); cloudPull(true); }); b('cOut', () => unlinkItch());
+}
+
+// ================= v1.8: game modes =================
+// classic: three lanes, destroy the enemy main tower. conquest: hold three river flags for points.
+// siege: one side defends its towers for 12 minutes, the other must break the main tower. survival: 3 commanders vs waves.
+const MODES = {
+  classic:{n:'經典三路', ic:'core', t:'約 15 分鐘', s:'推倒三路防禦塔，摧毀敵方主塔獲勝。',
+    rule:'進場後為兩支隊伍各選一種兵種（可相同），推倒三路防禦塔，摧毀敵方主塔獲勝。'},
+  conquest:{n:'據點爭奪', ic:'banner', t:'約 8 分鐘', s:'搶下河上 3 面戰旗，先拿到 800 分獲勝。',
+    rule:'沒有防禦塔與小兵。河上有 3 面戰旗（西灘、中橋、東灘），站上去就能佔領；每面戰旗每秒 +1 分、擊殺指揮官 +10 分。先拿到 800 分，或 12 分鐘時分數較高的一方獲勝。復活比較快，戰旗也會給軍資。'},
+  siege:{n:'攻城戰', ic:'siege', t:'12 分鐘', s:'一方守城、一方攻城：攻方 12 分鐘內攻破主塔才算贏。',
+    rule:'守方擁有全部防禦塔，開場多 600 軍資可以先蓋防線；攻方沒有塔，但小兵每波更多、復活更快、軍資收入 +50%。攻方要在 12 分鐘內摧毀守方主塔，時間到還沒攻破就是守方獲勝。'},
+  survival:{n:'守城生存', ic:'troops', t:'約 15 分鐘', s:'我方 3 位指揮官擋下一波波黑曜大軍，撐過 20 波。',
+    rule:'敵方沒有指揮官，而是每 40 秒從三路攻來一波大軍，越來越多、越來越強；每 5 波會有一位敵將親自帶隊。守住主塔撐過 20 波獲勝，主塔被攻破就結束，會記錄你撐過的最高波數。'}
+};
+const MKEYS = ['classic', 'conquest', 'siege', 'survival'];
+let LMODE = 'classic', LSIDE = 0, TUTNEXT = false;   // lobby choice; LSIDE for siege: 0 = defend, 1 = attack
+try { const m = localStorage.getItem('fhwz-mode'); if (MODES[m]) LMODE = m; LSIDE = localStorage.getItem('fhwz-side') === '1' ? 1 : 0; } catch (e) {}
+const FLAGS = [{k:'flag', x:-48, z:-48, n:'西灘戰旗', fl:'top'}, {k:'flag', x:0, z:0, n:'中橋戰旗', fl:'mid'}, {k:'flag', x:48, z:48, n:'東灘戰旗', fl:'bot'}];
+const CQ_WIN = 800, CQ_TIME = 720, SG_TIME = 720, SV_WIN = 20, SV_GAP = 40;
+const modeOf = () => (G && G.mode) || 'classic';
+const modeSPTS = mode => (mode === 'conquest' ? SPTS.concat(FLAGS) : SPTS);
+// which structures and lane waves each team has
+function modeTowers(t) { const m = modeOf(); return m === 'classic' || (m === 'siege' && t === G.md.def) || (m === 'survival' && t === 0); }
+function modeCore(t) { const m = modeOf(); return m === 'classic' || m === 'conquest' || (m === 'siege' && t === G.md.def) || (m === 'survival' && t === 0); }
+function modeMinions(t) { const m = modeOf(); return m === 'classic' || (m === 'siege' && t !== G.md.def); }
+function modeRespawn(t) { const m = modeOf(); return m === 'conquest' ? 0.6 : m === 'siege' ? (t.team === G.md.def ? 1 : 0.6) : m === 'survival' ? 0.8 : 1; }
+// lanes switch to the weakest enemy lane only where there are enemy towers to push
+function modeLaneSwitch(c) { const m = modeOf(); return m === 'classic' || (m === 'siege' && c.team !== G.md.def) || (m === 'survival' && c.team === 1); }
+function modeInit(lineup) {
+  const mode = lineup === 'net' ? (NET.mode || 'classic') : lineup && lineup.mode ? lineup.mode : TUTNEXT ? 'classic' : LMODE;
+  TUTNEXT = false;
+  G.mode = MODES[mode] ? mode : 'classic';
+  const def = lineup === 'net' ? NMT(NET.def || 0) : lineup && lineup.def !== undefined ? lineup.def : LSIDE ? 1 : 0;
+  G.md = {score:[0, 0], fs:[0, 0], wave:0, waveT:25, def, best:0};
+}
+// called once the commanders exist
+function modeSetup() {
+  if (G.mode === 'siege') {
+    for (const c of cmds()) if (c.team === G.md.def) { c.gold += 600; } else c.inc = 1.5;
+  }
+}
+
+// ---------- per-step rules (local game and server) ----------
+function modeTick(dt) {
+  const m = G.mode; if (!m || m === 'classic' || G.over || NET.client) return;
+  if (m === 'conquest') {
+    for (const s of G.sps) if (s.k === 'flag' && s.owner >= 0) { G.md.fs[s.owner] += dt; for (const c of cmds()) if (c.team === s.owner && c.respawn <= 0) c.gold += 2*dt; }
+    for (const t of [0, 1]) G.md.score[t] = Math.floor(G.md.fs[t]) + 10*cmds().filter(c => c.team === t).reduce((a, c) => a + (c.st.kills || 0), 0);
+    const [a, b] = G.md.score;
+    if (a >= CQ_WIN || b >= CQ_WIN) endGame(a >= b);
+    else if (G.time >= CQ_TIME) endGame(a >= b);
+  } else if (m === 'siege') {
+    if (G.time >= SG_TIME) { endGame(G.md.def === 0); return; }
+    garrisonTick(dt);
+  } else if (m === 'survival') {
+    G.md.waveT -= dt;
+    const left = raidersLeft();
+    G.md.left = left;
+    if (G.md.wave >= SV_WIN) { if (!left) { G.md.won = true; endGame(true); } return; }
+    if (G.md.waveT <= 0 || (!left && G.md.wave > 0 && G.md.waveT > 8)) { G.md.waveT = Math.max(28, SV_GAP - G.md.wave*0.5); spawnRaid(++G.md.wave); }
+  }
+}
+// siege: the defenders' lane waves stay home as a garrison at the outermost standing tower of each lane
+let GARR = [3, 6, 30];   // per wave, cap per lane, seconds between waves
+function garrisonTick(dt) {
+  const d = G.md.def;
+  G.md.gT = (G.md.gT ?? 6) - dt;
+  const front = l => ents.filter(e => e.kind === 'tow' && !e.dead && e.team === d && e.lane === l).sort((a, b) => a.tier - b.tier)[0] || ents.find(e => e.kind === 'core' && e.team === d && !e.dead);
+  if ((G.md.rhT = (G.md.rhT || 0) - dt) <= 0) { G.md.rhT = 2; for (const m of ents) if (m.garr && !m.dead && (!m.htw || m.htw.dead)) { const f = front(m.lane); if (f) { m.htw = f; m.home = {x:f.x, z:f.z}; m.post = lpoint(POLY[d][m.lane], Math.max(0, lproj(POLY[d][m.lane], f.x, f.z).s - 3)); } } }
+  if (G.md.gT > 0) return;
+  G.md.gT = GARR[2];
+  const sc = 1 + G.time/480;
+  for (const l of LKEYS) {
+    const f = front(l); if (!f) continue;
+    const n = ents.filter(e => e.garr && !e.dead && e.lane === l).length;
+    for (let i = 0; i < Math.min(GARR[0], GARR[1] - n); i++) {
+      const ranged = i === 2, hp = (ranged ? 120 : 180)*sc, st = lpoint(POLY[d][l], 12 + i*1.6), post = lpoint(POLY[d][l], Math.max(0, lproj(POLY[d][l], f.x, f.z).s - 3));
+      addEnt({kind:'min', team:d, lane:l, guard:true, garr:true, htw:f, home:{x:f.x, z:f.z}, hr:20, post:{x:post.x + rnd(-2, 2), z:post.z + rnd(-2, 2)}, x:st.x + rnd(-1, 1), z:st.z + rnd(-1, 1), r:0.6, hp, maxHp:hp, atk:(ranged ? 11 : 9)*sc, rng:ranged ? 9 : 1.8, ranged, sup:false, spd:6, off:0, mesh:bake(mkMinion(d, ranged, false))});
+    }
+  }
+}
+const raidersLeft = () => ents.filter(e => !e.dead && e.team === 1 && (e.kind === 'min' || e.kind === 'sol' || (e.kind === 'cmd' && e.respawn <= 0))).length;
+// survival: a wave of enemy soldiers marching down all three lanes (they use the lane-pushing minion brain)
+const RAIDU = ['pike', 'shield', 'archer', 'cav', 'mage', 'scout', 'priest', 'siege', 'griffin'];
+function spawnRaid(n) {
+  const pool = RAIDU.filter(u => unitOk(u)), hs = 1 + n*0.1, as = 1 + n*0.05;
+  const per = Math.min(16, 3 + Math.ceil(n*0.9));
+  for (const l of LKEYS) for (let i = 0; i < per; i++) {
+    const u = pool[(n + i*3 + LKEYS.indexOf(l)) % pool.length], U = UNITS[u], st = lpoint(POLY[1][l], 6 + i*1.4);
+    const hp = U.hp*hs*0.85;
+    addEnt({kind:'min', team:1, lane:l, utype:u, raid:true, x:st.x + rnd(-2, 2), z:st.z + rnd(-2, 2), r:u === 'cav' || u === 'siege' ? 1.1 : 0.7, hp, maxHp:hp,
+      atk:U.atk*as*(U.ranged ? 0.9 : 1), rng:U.rng || 1.8, ranged:!!U.ranged, sup:false, spd:U.spd || 6, off:rnd(-2, 2), mesh:bake(mkSoldier(u, 1))});
+  }
+  if (n % 5 === 0) spawnBoss(n);
+  tToast(0, n % 5 === 0 ? `第 ${n} 波：敵將親自率軍來襲！` : `第 ${n} 波敵軍來襲（每路 ${per} 名）`, n % 5 === 0 ? 'r' : 'b');
+  if (!SVR) drum();
+}
+function spawnBoss(n) {
+  const used = new Set(cmds().filter(c => c.team === 1 && !c.dead && c.respawn <= 0).map(c => c.key));
+  const cand = CKEYS.filter(k => !used.has(k)), key = pick(cand.length ? cand : CKEYS);
+  const lane = pick(LKEYS), c = mkCmdEnt(key, 1, lane, false);
+  const st = lpoint(POLY[1][lane], 4); c.x = st.x; c.z = st.z;
+  c.boss = true; c.smart = n >= 10; c.lvl = Math.min(10, 1 + Math.floor(n/2)); c.maxHp *= 1 + n*0.04; c.hp = c.maxHp; c.gold = 0;
+  rankAI(c, false); aiPickUnits(c); skinCmd(c);
+  for (const k of [0, 1]) { intel[0][ik(c, k)] = {st:0, hint:''}; spawnSquad(c, k); }
+}
+
+// a fallen enemy general's troops keep marching on the castle instead of retreating to a base that does not exist
+function bossFell(c) {
+  for (const e of ents) if (e.kind === 'sol' && !e.dead && e.owner === c) {
+    const U = UNITS[e.utype];
+    Object.assign(e, {kind:'min', raid:true, lane:c.lane, atk:U.atk, rng:U.rng || 1.8, ranged:!!U.ranged, sup:false, spd:U.spd || 6, off:rnd(-2, 2), atkT:0});
+  }
+  for (const g of c.grp) g.mem = [];
+}
+// ---------- AI per mode (returns true when it took over the lane behaviour) ----------
+function modeAiLane(c, Pl, pr) {
+  const m = G.mode;
+  if (m === 'conquest') { aiFlag(c); return true; }
+  if ((m === 'siege' && c.team === G.md.def) || (m === 'survival' && c.team === 0)) { aiDefend(c, Pl, pr); return true; }
+  return false;
+}
+function aiFlag(c) {
+  const mine = G.sps.find(s => s.k === 'flag' && s.fl === c.lane) || G.sps.find(s => s.k === 'flag');
+  let f = mine;
+  if (mine.owner === c.team && !mine.contest) {
+    c.safeT = (c.safeT || 0) + 0.3;
+    if (c.safeT > 15) { const other = G.sps.filter(s => s.k === 'flag' && s.owner !== c.team).sort((a, b) => Math.hypot(a.x - c.x, a.z - c.z) - Math.hypot(b.x - c.x, b.z - c.z))[0]; if (other) f = other; }
+  } else c.safeT = 0;
+  const home = SPAWN[c.team], dx = home.x - f.x, dz = home.z - f.z, L = Math.hypot(dx, dz) || 1;
+  c.goal = {x:f.x + dx/L*3, z:f.z + dz/L*3}; c.tgt = findTarget(c, c.x, c.z, 16);
+  const face = Math.atan2(-dx, -dz);
+  if ((c.flT = (c.flT || 0) - 0.3) <= 0) {
+    c.flT = 2;
+    for (const k of [0, 1]) { const g = c.grp[k]; if (!g.mem.length) continue; const side = k ? 3 : -3, p = {x:f.x + Math.cos(face)*side - dx/L*(UNITS[g.utype].ranged ? 4 : 0), z:f.z - Math.sin(face)*side - dz/L*(UNITS[g.utype].ranged ? 4 : 0)}; aiOrder(c, k, 'hold', p, face); }
+  }
+  aiBuildTick(c, POLY[c.team][c.lane], lproj(POLY[c.team][c.lane], c.x, c.z));
+}
+function aiDefend(c, Pl, pr) {
+  // hold just behind the outermost tower still standing on this lane (or in front of the main tower)
+  const tw = ents.filter(e => e.kind === 'tow' && !e.dead && e.team === c.team && e.lane === c.lane).sort((a, b) => a.tier - b.tier)[0];
+  const core = ents.find(e => e.kind === 'core' && e.team === c.team && !e.dead);
+  const anchor = tw || core || SPAWN[c.team], ap = lproj(Pl, anchor.x, anchor.z);
+  const p = lpoint(Pl, Math.max(0, ap.s - 4)), ahead = lpoint(Pl, ap.s + 6), face = Math.atan2(ahead.x - p.x, ahead.z - p.z);
+  c.goal = {x:p.x, z:p.z}; c.tgt = findTarget(c, c.x, c.z, 16);
+  if ((c.dfT = (c.dfT || 0) - 0.3) <= 0) {
+    c.dfT = 2.5;
+    for (const k of [0, 1]) { const g = c.grp[k]; if (!g.mem.length) continue; const off = UNITS[g.utype].ranged ? -2 : 3, q = {x:p.x + Math.sin(face)*off + Math.cos(face)*(k ? 3 : -3), z:p.z + Math.cos(face)*off - Math.sin(face)*(k ? 3 : -3)}; aiOrder(c, k, 'hold', q, face); }
+  }
+  aiBuildTick(c, Pl, pr);
+}
+
+// ---------- HUD ----------
+function modeHud() {
+  let el = $('mbar'); const m = G.mode;
+  if (!m || m === 'classic') { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'mbar'; el.className = 'hud pnl'; (document.getElementById('hudroot') || document.body).appendChild(el); }
+  let h = '';
+  if (m === 'conquest') {
+    const [a, b] = G.md.score, fl = G.sps.filter(s => s.k === 'flag');
+    const chip = s => `<i class="fg ${s.owner === 0 ? 'b' : s.owner === 1 ? 'r' : ''} ${s.contest ? 'c' : ''}" title="${s.n}">${s.n[0]}</i>`;
+    h = `<b class="sb">${a}</b><span class="mid"><small>據點爭奪・先到 ${CQ_WIN}・剩 ${fmt(Math.max(0, CQ_TIME - G.time))}</small><span>${fl.map(chip).join('')}</span><span class="pb"><i style="width:${Math.min(100, a/CQ_WIN*100)}%" class="b"></i><i style="width:${Math.min(100, b/CQ_WIN*100)}%" class="r"></i></span></span><b class="sr">${b}</b>`;
+  } else if (m === 'siege') {
+    const def = player && G.md.def === player.team;
+    h = `<span class="mid"><small>攻城戰・你是${def ? '守方' : '攻方'}</small><span class="big">${fmt(Math.max(0, SG_TIME - G.time))}</span><small>${def ? '守住主塔直到時間結束' : '時間內攻破敵方主塔'}</small></span>`;
+  } else if (m === 'survival') {
+    const left = G.md.left !== undefined ? G.md.left : raidersLeft();
+    h = `<span class="mid"><small>守城生存</small><span class="big">第 ${G.md.wave} / ${SV_WIN} 波</span><small>${G.md.wave >= SV_WIN ? `最後一波・敵軍剩 ${left}` : `下一波 ${Math.max(0, Math.ceil(G.md.waveT))} 秒・場上敵軍 ${left}`}</small></span>`;
+  }
+  if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; }
+}
+
+// ---------- lobby ----------
+function modePicker() {
+  const card = k => `<button type="button" class="mdc ${k === LMODE ? 'on' : ''}" data-mode="${k}">${icon(MODES[k].ic, 34)}<span><b>${MODES[k].n}</b><small>${MODES[k].s}</small><small class="mt">${MODES[k].t}</small></span></button>`;
+  const side = LMODE === 'siege' ? `<div class="seg mside"><button type="button" class="${LSIDE ? '' : 'on'}" data-side="0">我方守城</button><button type="button" class="${LSIDE ? 'on' : ''}" data-side="1">我方攻城</button></div>` : '';
+  return `<div class="kick" style="margin-top:6px">遊戲模式</div><div class="mdp">${MKEYS.map(card).join('')}</div>${side}`;
+}
+function bindModePicker(P2) {
+  P2.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { LMODE = b.dataset.mode; try { localStorage.setItem('fhwz-mode', LMODE); } catch (e) {} drawLobbyPanel(); });
+  P2.querySelectorAll('[data-side]').forEach(b => b.onclick = () => { LSIDE = +b.dataset.side; try { localStorage.setItem('fhwz-side', String(LSIDE)); } catch (e) {} drawLobbyPanel(); });
+}
+const modeRule = () => MODES[LMODE].rule + (LMODE === 'siege' ? `（你選擇${LSIDE ? '攻城' : '守城'}）` : '');
+
+// ---------- results ----------
+function modeTitle(win) {
+  const m = G.mode;
+  if (m === 'conquest') return win ? `勝利：據點爭奪 ${G.md.score[0]} : ${G.md.score[1]}` : `敗北：據點爭奪 ${G.md.score[0]} : ${G.md.score[1]}`;
+  if (m === 'siege') { const def = player && G.md.def === player.team; return win ? (def ? '勝利：守住了王城' : '勝利：攻破敵方主塔') : (def ? '敗北：王城被攻破' : '敗北：時間內沒能攻破主塔'); }
+  if (m === 'survival') return win ? `勝利：撐過全部 ${SV_WIN} 波` : `王城失守：撐過 ${Math.max(0, G.md.wave - 1)} 波`;
+  return win ? '勝利：敵方主塔已陷落' : '敗北：我方主塔失守';
+}
+function modeRep() {
+  if (G.mode !== 'survival') return null;
+  const w = G.md.won ? SV_WIN : Math.max(0, G.md.wave - 1);
+  PROF.best = PROF.best || {};
+  const nb = w > (PROF.best.survival || 0); if (nb) PROF.best.survival = w;
+  return [`撐過 ${w} 波${nb ? '・新紀錄' : ''}`, w*6];
+}
+
 // ================= v1.0: online multiplayer =================
 // One authoritative simulation runs on the Node server (server/server.js loads this same file with globalThis.NETSV set).
 // Browsers send commands, receive ~10 snapshots a second and only render. A client on the red team sees the map
@@ -4959,7 +5635,7 @@ function rankUpModal() {
 // minimap, "我方/敵方") keeps working unchanged; positions, teams and lanes are mirrored on the way in and out.
 const SVR = globalThis.NETSV || null;
 const NET = {client:false, team:0, mirror:false, ws:null, url:'', name:'', id:null, room:null, you:null, ents:new Map(), zmap:new Map(), lastSend:0, mv:{x:0, z:0}, rpickS:'', snapN:0, hp:new Map()};
-const NET_VER = '1.3.5';      // must match the server's copy of the game
+const NET_VER = '1.5.0';      // must match the server's copy of the game
 const NET_URL_DEFAULT = '';   // build_itch.py can bake the server address in
 const MIRL = {top:'bot', mid:'mid', bot:'top'};
 const CAMPMIR = {wolfB:'wolfR', wolfR:'wolfB', golemB:'golemR', golemR:'golemB', mercN:'mercS', mercS:'mercN'};
@@ -5007,7 +5683,7 @@ function netDesc(e) {
   const d = {i:e.id, k:e.kind, tm:e.team, x:NR1(e.x), z:NR1(e.z), f:NR1(e.facing || 0), r:e.r};
   if (e.kind === 'cmd') { d.key = e.key; d.ln = e.lane; d.nm = e.name || ''; d.hu = e.net ? 1 : 0; if (e.sk) d.sk = e.sk; }
   else if (e.kind === 'sol') { d.u = e.utype; d.o = e.owner.id; d.g = e.grp; if (isComp(e)) d.cp = 1; else { const sk = soldierSkin(e.owner, e.utype); if (sk) d.sk = sk; } if (e.atkMul) d.big = 1; }
-  else if (e.kind === 'min') { d.rg = e.ranged ? 1 : 0; d.sp = e.sup ? 1 : 0; d.gu = e.guard ? 1 : 0; d.ln = e.lane; }
+  else if (e.kind === 'min') { d.rg = e.ranged ? 1 : 0; d.sp = e.sup ? 1 : 0; d.gu = e.guard ? 1 : 0; d.ln = e.lane; if (e.utype) d.u = e.utype; }
   else if (e.kind === 'tow') { d.ln = e.lane; d.ti = e.tier; }
   else if (e.kind === 'bld') { d.ty = e.type; d.o = e.owner ? e.owner.id : 0; }
   else if (e.kind === 'neu') { d.sb = e.sub; if (e.camp) d.ca = e.camp.key; }
@@ -5016,7 +5692,7 @@ function netDesc(e) {
 function netRow(e) {
   const bits = (e.vis[0] ? 2 : 0) | (e.vis[1] ? 4 : 0) | (e.stealth ? 8 : 0) | (e.stunT > 0 ? 16 : 0) | (e.built ? 64 : 0) | (e.prot ? 128 : 0) | (e.rootT > 0 ? 256 : 0);
   const a = [e.id, Math.round(e.x*10), Math.round(e.z*10), Math.round((e.facing || 0)*100), Math.round(e.hp), Math.round(e.maxHp), bits, e.atkA > 0.2 ? 1 : 0];
-  if (e.kind === 'cmd') a.push(Math.round(e.respawn*10), e.lvl, e.streak || 0, e.cmdA > 0.3 ? 1 : 0);
+  if (e.kind === 'cmd') a.push(Math.round(e.respawn*10), e.lvl, e.streak || 0, actCode(e));
   else if (e.kind === 'bld') a.push(e.lvl || 1, Math.round((e.buildT || 0)*10));
   else if (e.kind === 'drg') a.push(Math.round(e.life || 0));
   return a;
@@ -5042,7 +5718,7 @@ function netSnap() {
   for (const id of SVR.zones.keys()) if (!zl.has(id)) { S.zd.push(id); SVR.zones.delete(id); }
   S.G = {lost:G.lost, be:G.behind, ls:G.lastStand, ob:{titan:[NR1(G.obj.titan.t), G.obj.titan.ent ? G.obj.titan.ent.id : 0], dragon:[NR1(G.obj.dragon.t), G.obj.dragon.ent ? G.obj.dragon.ent.id : 0]},
     sp:G.sps.map(s => [s.owner, Math.round(s.prog), s.contest ? 1 : 0]), ca:G.camps ? Object.fromEntries(Object.entries(G.camps).map(([k, cs]) => [k, [cs.mobs.length, cs.owner, NR1(cs.t)]])) : null,
-    in:[intel[0], intel[1]], rv:G.ravenT.map(NR1), wv:NR1(G.waveT)};
+    in:[intel[0], intel[1]], rv:G.ravenT.map(NR1), wv:NR1(G.waveT), md:[G.md.score, G.md.wave, Math.ceil(G.md.waveT), G.md.left || 0]};
   S.C = cmds().map(c => [c.id, c.lane, c.lvl, Math.round(c.gold), c.grp.map(g => [g.utype, g.order, g.form, Math.round(g.mor), g.rank, g.routT > 0 ? 1 : 0]), c.supportUntil > G.time ? 1 : 0, c.tal || [], c.net ? 1 : 0, c.st, Math.round(c.spent)]);
   S.to = SVR.toasts.splice(0);
   S.fl = floaters.splice(0).filter(f => f.w).map(f => [f.w, NR1(f.x), NR1(f.y), NR1(f.z), f.s, f.c, f.t]);
@@ -5081,6 +5757,7 @@ function netCmd(c, m) {
       case 'merc': if (MERCS.includes(m.u)) hireMerc(c, m.u, m.g ? 1 : 0); break;
       case 'tal': if (c.talQ && c.talQ.length) applyTal(c, c.talQ.shift(), m.i ? 1 : 0); break;
       case 'reform': reform(c, m.k, m.u); break;
+      case 'rune': c.useRune = !!m.on; break;
       case 'rpick': if (okU(c, m.u0) && okU(c, m.u1)) c.rpick = [m.u0, m.u1]; break;
       case 'units': if (phase === 'muster' && okU(c, m.u0) && okU(c, m.u1)) { c.mpick = [m.u0, m.u1]; c.grp[0].utype = m.u0; c.grp[1].utype = m.u1; } break;
       case 'lane': { const o = E(m.c); if (o && o.kind === 'cmd' && o.team === c.team && (o === c || !o.net) && LKEYS.includes(m.l)) { o.lane = m.l; o.laneSet = true; o.supportUntil = 0; } break; }
@@ -5105,7 +5782,7 @@ function netSpawn(d) {
   const o = {kind:d.k, team:tm, x, z, tx:x, tz:z, facing:NMF(d.f), r:d.r, hp:1, maxHp:1, net:true};
   if (d.k === 'cmd') Object.assign(o, {key:d.key, lane:NET.mirror ? MIRL[d.ln] : d.ln, name:d.nm, human:!!d.hu, grp:[newGrp(), newGrp()], lvl:1, xp:0, tal:[], arm:{}, respawn:0, streak:0, gold:0, spent:0, builds:0, st:{kills:0, deaths:0, solK:0, solL:0, towers:0, dmg:0}, qT:0, rT:0, eT:0, cmdA:0, spd:CMDS[d.key].spd, faceS:NMF(d.f), sk:d.sk || '', mesh:applySkin(bake(mkCommander(d.key, tm)), d.sk)});
   else if (d.k === 'sol') { Object.assign(o, {utype:d.u, owner:NET.ents.get(d.o) || null, grp:d.g || 0, comp:!!d.cp && d.u !== 'wolf', mesh:applySkin(bake(mkSoldier(d.u, tm)), d.sk)}); if (d.big) o.mesh.scale.multiplyScalar(1.2); }
-  else if (d.k === 'min') Object.assign(o, {ranged:!!d.rg, sup:!!d.sp, guard:!!d.gu, lane:d.ln, mesh:bake(mkMinion(tm, !!d.rg, !!d.sp, !!d.gu))});
+  else if (d.k === 'min') Object.assign(o, {ranged:!!d.rg, sup:!!d.sp, guard:!!d.gu, lane:d.ln, utype:d.u, mesh:bake(d.u && UNITS[d.u] ? mkSoldier(d.u, tm) : mkMinion(tm, !!d.rg, !!d.sp, !!d.gu))});
   else if (d.k === 'tow') Object.assign(o, {lane:NET.mirror ? MIRL[d.ln] : d.ln, tier:d.ti, mesh:mkTower(tm, d.ti - 1)});
   else if (d.k === 'core') o.mesh = mkCore(tm);
   else if (d.k === 'bld') {
@@ -5151,7 +5828,7 @@ function netApply(S) {
     if (a[7]) e.atkA = 0.35;
     if (e.kind === 'bld') { const built = !!(b & 64); if (built && !e.built) setOpacity(e.mesh, e.type === 'trap' ? 0.8 : 1); e.built = built; e.buildT = a[9]/10; if (a[8] !== (e.lvl || 1)) { e.lvl = a[8]; upgVisual(e); } }
     else if (e.kind === 'tow' || e.kind === 'core') e.prot = !!(b & 128);
-    else if (e.kind === 'cmd') { const rs0 = e.respawn; e.respawn = a[8]/10; e.lvl = a[9]; e.streak = a[10]; if (a[11]) e.cmdA = 0.6; if (rs0 > 0 && e.respawn <= 0) { e.x = e.tx; e.z = e.tz; } if (e.respawn > 0) e.hp = 0; }
+    else if (e.kind === 'cmd') { const rs0 = e.respawn; e.respawn = a[8]/10; e.lvl = a[9]; e.streak = a[10]; actApply(e, a[11]); if (rs0 > 0 && e.respawn <= 0) { e.x = e.tx; e.z = e.tz; } if (e.respawn > 0) e.hp = 0; }
     else if (e.kind === 'drg') e.life = a[8];
     if (S.full) { e.x = e.tx; e.z = e.tz; }
     if (NET.snapN > 2 && e.hp < hp0 - 0.5 && e.vis[0] && (e.x - camT.x)**2 + (e.z - camT.z)**2 < 3600) { G.combatT = G.time; G.combatN = Math.min(30, (G.combatN || 0) + 0.15); if (Math.random() < 0.3) sparks(e.x, 1.3, e.z, e.team === 0 ? '#F0978A' : '#FFE2A8', 3, 4); }
@@ -5191,9 +5868,10 @@ function netApply(S) {
 }
 function netWorld(Gs) {
   const sw = a => NET.mirror ? [a[1], a[0]] : a;
+  if (Gs.md) { G.md.score = sw(Gs.md[0]); G.md.wave = Gs.md[1]; G.md.waveT = Gs.md[2]; G.md.left = Gs.md[3]; }
   G.lost = sw(Gs.lost); G.behind = NMT(Gs.be); G.lastStand = sw(Gs.ls); G.ravenT = sw(Gs.rv); G.waveT = Gs.wv;
   for (const key of ['titan', 'dragon']) { const o = Gs.ob[key]; G.obj[key].t = o[0]; G.obj[key].ent = o[1] ? NET.ents.get(o[1]) || null : null; }
-  if (!NET.spMap) NET.spMap = SPTS.map(s => G.sps.findIndex(r => Math.abs(r.x - NMX(s.x)) < 1 && Math.abs(r.z - NMX(s.z)) < 1));
+  if (!NET.spMap) NET.spMap = modeSPTS(G.mode).map(s => G.sps.findIndex(r => Math.abs(r.x - NMX(s.x)) < 1 && Math.abs(r.z - NMX(s.z)) < 1));
   Gs.sp.forEach((v, i) => {
     const s = G.sps[NET.spMap[i]]; if (!s) return;
     const ow = NMT(v[0]), pr = NET.mirror ? -v[1] : v[1];
@@ -5380,15 +6058,24 @@ function drawNetRoom() {
     return `<button type="button" class="ns ${p && p.id === NET.id ? 'me' : ''} ${p && !p.on ? 'off' : ''}" data-team="${team}" data-slot="${i}">${p ? icon(p.key, 40, team) : icon('unknown', 40)}<span><b>${p ? p.name : 'AI'}</b><small>${p ? `${CMDS[p.key].n}・軍階 ${p.rk || 1}` : '空位（點擊加入）'}</small></span></button>`;
   };
   const used = new Set(R.players.filter(p => me && p.team === me.team && p.id !== NET.id).map(p => p.key));
-  el.innerHTML = `<div class="nteams"><div><h3 style="color:${C.blue}">聖輝聯軍（藍方）</h3>${[0, 1, 2].map(i => slot(0, i)).join('')}</div><div><h3 style="color:${C.red}">黑曜大軍（紅方）</h3>${[0, 1, 2].map(i => slot(1, i)).join('')}</div></div>
+  el.innerHTML = `<div class="nteams"><div><h3 style="color:${C.blue}">聖輝聯軍（藍方）</h3>${[0, 1, 2].map(i => slot(0, i)).join('')}</div><div><h3 style="color:${C.red}">黑曜大軍（紅方）</h3>${R.mode === 'survival' ? `<p style="color:var(--muted);font-size:13px;margin:6px 0">守城生存：紅方由一波波掠奪大軍組成，每 5 波出現一位敵方指揮官首領。</p>` : [0, 1, 2].map(i => slot(1, i)).join('')}</div></div>
+    ${netModeHtml(R, host)}
     <p style="color:var(--muted);font-size:13px;margin:6px 0">本場功能等級：軍階 ${Math.min(...R.players.map(p => p.rk || 1))}「${RANKS[Math.min(...R.players.map(p => p.rk || 1)) - 1].n}」（以房內最低軍階為準，AI 也照這個等級作戰）</p><div class="kick" style="margin-top:8px">你的指揮官（同隊不可重複）</div><div class="pick">${CKEYS.map(k => `<button type="button" class="pk ${me && me.key === k ? 'on' : ''}" data-k="${k}" ${used.has(k) || !unlMe('cmd:' + k) ? 'disabled' : ''}>${icon(k, 40)}<span>${CMDS[k].n}</span></button>`).join('')}</div>
     <div class="bar">${host ? `<button type="button" class="go" id="netStart">${glyph('advance', 20, '#1A1408')}開始對戰</button>` : '<span style="color:var(--muted)">等待房主開始…</span>'}<span style="color:var(--muted);font-size:12px">兩隊都可以放真人；同隊是合作、分隊就是對戰。空位由 AI 指揮官補上。</span></div>`;
   el.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => netSend({t:'slot', team:+b.dataset.team, slot:+b.dataset.slot}));
   el.querySelectorAll('[data-k]').forEach(b => b.onclick = () => netSend({t:'pick', key:b.dataset.k, sk:mySkins(b.dataset.k)}));
   const st = $('netStart'); if (st) st.onclick = () => netSend({t:'start'});
+  el.querySelectorAll('[data-nmode]').forEach(b => b.onclick = () => netSend({t:'mode', mode:b.dataset.nmode, def:R.def || 0}));
+  el.querySelectorAll('[data-ndef]').forEach(b => b.onclick = () => netSend({t:'mode', mode:R.mode || 'classic', def:+b.dataset.ndef}));
+}
+function netModeHtml(R, host) {
+  const md = R.mode || 'classic', M = MODES[md];
+  const chips = MKEYS.map(k => `<button type="button" class="${k === md ? 'on' : ''}" data-nmode="${k}" ${host ? '' : 'disabled'}>${MODES[k].n}</button>`).join('');
+  const side = md === 'siege' ? `<div class="seg mside">${[0, 1].map(t => `<button type="button" class="${(R.def || 0) === t ? 'on' : ''}" data-ndef="${t}" ${host ? '' : 'disabled'}>${t ? '紅方守城' : '藍方守城'}</button>`).join('')}</div>` : '';
+  return `<div class="kick" style="margin-top:8px">遊戲模式${host ? '（房主選擇）' : ''}</div><div class="seg nmode">${chips}</div>${side}<p style="color:var(--muted);font-size:13px;margin:4px 0">${M.rule}${md === 'survival' ? ' 線上守城生存最多 3 位真人，全部在藍方。' : ''}</p>`;
 }
 function netClientStart(m) {
-  NET.client = true; NET.you = m.you; NET.team = m.you.team; NET.mirror = m.you.team === 1;
+  NET.client = true; NET.you = m.you; NET.team = m.you.team; NET.mirror = m.you.team === 1; NET.mode = MODES[m.mode] ? m.mode : 'classic'; NET.def = m.def || 0;
   NET.ents.clear(); NET.zmap.clear(); NET.spMap = null; NET.tq = ''; NET.snapN = 0; NET.mv = {x:0, z:0}; NET.rpickS = '';
   try { localStorage.setItem('fhwz-net-tok', JSON.stringify({code:m.code, tok:m.you.tok, url:NET.url})); } catch (e) {}
   const b = $('netBox'); if (b) b.remove();

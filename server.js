@@ -84,14 +84,16 @@ const cleanSk = sk => {   // cosmetic skin choices sent by the browser: keep onl
 };
 const clean = s => String(s || '').replace(/[<>&"'`]/g, '').trim().slice(0, 12) || '指揮官';
 
-function roomInfo(r) { return {t: 'room', code: r.code, host: r.host, state: r.state, players: r.players.map(p => ({id: p.id, name: p.name, team: p.team, slot: p.slot, key: p.key, rk: p.rk, on: !!p.ws}))}; }
+const MODEK = ['classic', 'conquest', 'siege', 'survival'];
+function roomInfo(r) { return {t: 'room', code: r.code, host: r.host, state: r.state, mode: r.mode || 'classic', def: r.def || 0, players: r.players.map(p => ({id: p.id, name: p.name, team: p.team, slot: p.slot, key: p.key, rk: p.rk, on: !!p.ws}))}; }
 function broadcastRoom(r) { const m = JSON.stringify(roomInfo(r)); for (const p of r.players) if (p.ws) p.ws.send(m); }
 function freeSlot(r, team) { for (let i = 0; i < 3; i++) if (!r.players.some(p => p.team === team && p.slot === i)) return i; return -1; }
 function freeKey(r, team, want, self) { const used = new Set(r.players.filter(p => p.team === team && p !== self).map(p => p.key)); if (want && CKEYS.includes(want) && !used.has(want)) return want; return CKEYS.find(k => !used.has(k)); }
 function addPlayer(r, cl, key, sk, rk) {
   if (r.players.length >= 6) return '房間已滿（6 人）';
+  if (r.mode === 'survival' && freeSlot(r, 0) < 0) return '守城生存最多 3 人，房間已滿';
   const n0 = r.players.filter(p => p.team === 0).length, n1 = r.players.filter(p => p.team === 1).length;
-  const team = n0 <= n1 ? (freeSlot(r, 0) >= 0 ? 0 : 1) : (freeSlot(r, 1) >= 0 ? 1 : 0);
+  const team = r.mode === 'survival' ? 0 : n0 <= n1 ? (freeSlot(r, 0) >= 0 ? 0 : 1) : (freeSlot(r, 1) >= 0 ? 1 : 0);
   const p = {id: cl.id, name: cl.name, team, slot: freeSlot(r, team), key: null, sk: cleanSk(sk), rk: Math.max(1, Math.min(8, Math.floor(+rk) || 1)), tok: crypto.randomBytes(12).toString('hex'), ws: cl.ws, cl};
   p.key = freeKey(r, team, key, p);
   r.players.push(p); cl.room = r; cl.p = p;
@@ -107,7 +109,7 @@ function removePlayer(r, p) {
 
 function startMatch(r) {
   const lineup = [];
-  for (const team of [0, 1]) {
+  for (const team of (r.mode === 'survival' ? [0] : [0, 1])) {
     const used = new Set(r.players.filter(p => p.team === team).map(p => p.key));
     const pool = CKEYS.filter(k => !used.has(k)).sort(() => Math.random() - 0.5);
     for (let slot = 0; slot < 3; slot++) {
@@ -115,6 +117,7 @@ function startMatch(r) {
       lineup.push(p ? {team, slot, key: p.key, cid: 'p' + p.id, name: p.name, sk: p.sk && p.sk.c && p.sk.c.startsWith(p.key + '_') ? p.sk.c : '', skU: p.sk ? p.sk.u : {}} : {team, slot, key: pool.pop()});
     }
   }
+  lineup.mode = r.mode || 'classic'; lineup.def = r.def || 0;
   lineup.flv = Math.min(...r.players.map(p => p.rk || 1));     // everyone plays with what the least experienced player has unlocked
   let api;
   try { api = createMatch(lineup); } catch (e) { console.error('match start failed', e); for (const p of r.players) if (p.ws) p.ws.send({t: 'err', msg: '伺服器開局失敗：' + e.message}); return; }
@@ -125,7 +128,7 @@ function startMatch(r) {
 }
 function sendStart(r, p, full) {
   const c = r.api.cmdOf(p.cid);
-  p.ws.send({t: 'start', code: r.code, muster: r.api.G.muster, flv: r.flv, you: {team: p.team, key: p.key, cmd: c.id, tok: p.tok}});
+  p.ws.send({t: 'start', code: r.code, mode: r.mode || 'classic', def: r.def || 0, muster: r.api.G.muster, flv: r.flv, you: {team: p.team, key: p.key, cmd: c.id, tok: p.tok}});
   if (full) { const S = r.api.netFull(); S.P = r.api.netPriv(c); p.ws.send({t: 'snap', s: S}); }
 }
 function roomTick(r) {
@@ -204,6 +207,7 @@ function onMessage(cl, m) {
     case 'slot': {
       if (!r || r.state !== 'lobby') break;
       const team = m.team === 1 ? 1 : 0, slot = +m.slot;
+      if (team === 1 && r.mode === 'survival') break;
       if (!(slot >= 0 && slot < 3) || r.players.some(q => q.team === team && q.slot === slot)) break;
       p.team = team; p.slot = slot; p.key = freeKey(r, team, p.key, p); broadcastRoom(r); break;
     }
@@ -211,6 +215,14 @@ function onMessage(cl, m) {
       if (!r || r.state !== 'lobby' || !CKEYS.includes(m.key)) break;
       if (r.players.some(q => q !== p && q.team === p.team && q.key === m.key)) { cl.ws.send({t: 'err', msg: `同隊已經有人選了${NAME[m.key]}`}); break; }
       p.key = m.key; if (m.sk) p.sk = cleanSk(m.sk); broadcastRoom(r); break;
+    }
+    case 'mode': {
+      if (!r || r.state !== 'lobby' || r.host !== cl.id || !MODEK.includes(m.mode)) break;
+      if (m.mode === 'survival') {
+        if (r.players.length > 3) { cl.ws.send({t: 'err', msg: '守城生存最多 3 位玩家（全部在藍方），請先請人離開'}); break; }
+        for (const q of r.players) if (q.team === 1) { q.team = 0; q.slot = -1; q.slot = freeSlot(r, 0); q.key = freeKey(r, 0, q.key, q); }
+      }
+      r.mode = m.mode; r.def = m.def === 1 ? 1 : 0; broadcastRoom(r); break;
     }
     case 'start': {
       if (!r || r.state !== 'lobby') break;
